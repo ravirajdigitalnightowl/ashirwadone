@@ -2,34 +2,53 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter } from 'react-native';
-import messaging from '@react-native-firebase/messaging'; // 🔥 NAYA IMPORT
-import api from '../services/api'; // Humara banaya hua Axios instance
+import messaging from '@react-native-firebase/messaging';
+import api from '../services/api';
 
-// Teeno roles define kiye
-export type UserRole = 'ADMIN' | 'RESIDENT' | 'WORKER' | null;
+// 🔥 UPDATE: Added SUPER_ADMIN role
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'RESIDENT' | 'WORKER' | null;
 
-// User Data ki backend wali structure
+// 🔥 NAYA: Society Branding Interface (Populated on login)
+export interface SocietyData {
+  _id: string;
+  name: string;
+  logoUrl?: string;
+  bannerImages?: string[];
+  promoVideoUrl?: string;
+  aboutText?: string;
+  amenities?: string[];
+}
+
+// 🔥 UPDATE: Added new SaaS fields (floor, shift, societyId, etc.)
 export interface UserData {
   _id: string;
   name: string;
   email: string;
   phone: string;
   role: UserRole;
+  societyId?: SocietyData; // Populated from backend
+  
+  // Resident fields
   tower?: string;
+  floor?: string; 
   flatNo?: string;
+  
+  // Worker fields
   department?: string;
+  shiftStart?: string; 
+  shiftEnd?: string;   
+  aadharNo?: string;   
+  photoUrl?: string; 
 }
 
-// Context ke props
 interface AuthContextProps {
   userRole: UserRole;
   userData: UserData | null;
-  isLoading: boolean; // App khulte time loader dikhane ke liye
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
-// Default Values
 export const AuthContext = createContext<AuthContextProps>({
   userRole: null,
   userData: null,
@@ -55,7 +74,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setUserData(parsedUser);
           setUserRole(parsedUser.role);
 
-          // 🔥 NAYA: Auto-login par token Firebase se fresh lo aur sync karo
+          // Auto-login par token Firebase se fresh lo aur sync karo
           try {
             const authStatus = await messaging().requestPermission();
             if (
@@ -64,8 +83,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             ) {
               const fcmToken = await messaging().getToken();
               if (fcmToken) {
-                // api instance ka use kar rahe hain kyunki interceptor header me token laga dega
-                // 🔥 UPDATE: '/auth/update-fcm' route kar diya
                 await api.patch('/auth/update-fcm', { fcmToken });
               }
             }
@@ -76,7 +93,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } catch (error) {
         console.error('Failed to restore session:', error);
       } finally {
-        setIsLoading(false); // Checking khatam, ab app render hone do
+        setIsLoading(false);
       }
     };
 
@@ -85,13 +102,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // 2. LISTEN FOR INTERCEPTOR LOGOUT SIGNAL
     const logoutListener = DeviceEventEmitter.addListener('FORCE_LOGOUT', async () => {
       console.log('Force logout triggered by interceptor');
-      // Token api.ts mein clear ho chuka hai, bas state null karni hai
       setUserData(null);
       setUserRole(null);
     });
 
     return () => {
-      // Cleanup listener jab component unmount ho
       logoutListener.remove();
     };
   }, []);
@@ -99,17 +114,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // 3. REAL LOGIN FUNCTION (CALLS BACKEND API)
   const login = async (email: string, password: string) => {
     try {
-      // Backend ko request bhejo
       const response = await api.post('/auth/login', { email, password });
       
       const { token, data } = response.data;
-      const user = data.user;
+      const user = data.user; // User object will now include populated societyId
 
       // AsyncStorage mein securely save karo
       await AsyncStorage.setItem('userToken', token);
       await AsyncStorage.setItem('userData', JSON.stringify(user));
 
-      // 🔥 NAYA: Login hote hi Firebase se token lo aur Backend ko bhejo
+      // Login hote hi Firebase se token lo aur Backend ko bhejo
       try {
         const authStatus = await messaging().requestPermission();
         if (
@@ -118,7 +132,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         ) {
           const fcmToken = await messaging().getToken();
           if (fcmToken) {
-            // 🔥 UPDATE: '/auth/update-fcm' route kar diya
             await api.patch('/auth/update-fcm', { fcmToken });
           }
         }
@@ -130,7 +143,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUserData(user);
       setUserRole(user.role);
     } catch (error: any) {
-      // Agar invalid email/password hoga toh humein frontend ke login form par catch karna padega
       throw error; 
     }
   };
@@ -138,9 +150,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // 4. REAL LOGOUT FUNCTION
   const logout = async () => {
     try {
-      // 🔥 NAYA: App se logout hone se PEHLE backend par token null kar do
+      // App se logout hone se PEHLE backend par token null kar do
       try {
-        // 🔥 UPDATE: '/auth/update-fcm' route kar diya
         await api.patch('/auth/update-fcm', { fcmToken: null });
       } catch (fcmError) {
         console.error('Failed to clear FCM Token on backend:', fcmError);

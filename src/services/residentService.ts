@@ -1,4 +1,4 @@
-
+// src/services/residentService.ts
 import api from './api';
 
 export const residentService = {
@@ -10,9 +10,27 @@ export const residentService = {
     return response.data;
   },
 
-  // 🔥 UPDATE: Removed page and limit params, updated endpoint URL
-  getMyTickets: async (status: string = 'All', timeRange: string = 'This Month') => {
-    const response = await api.get(`/resident/tickets?status=${status}&timeRange=${timeRange}`);
+  // 🔥 UPDATE: Added page, limit, month, and year for Infinite Scrolling & SaaS filtering
+  getMyTickets: async ({ status = 'All', timeRange = 'This Month', month, year, pageParam = 1, limit = 10 }: any) => {
+    let url = `/resident/tickets?status=${status}&timeRange=${timeRange}&page=${pageParam}&limit=${limit}`;
+    if (month && year) {
+      url += `&month=${month}&year=${year}`;
+    }
+    const response = await api.get(url);
+    return response.data;
+  },
+
+  // 🔥 NEW SAAS FEATURE: Digital Notice Board / Posts fetch karna
+  getAllPosts: async ({ type = 'All', month, year, pageParam = 1, limit = 10 }: any) => {
+    let url = `/resident/posts?page=${pageParam}&limit=${limit}`;
+    if (type && type !== 'All') {
+      url += `&type=${type}`;
+    }
+    if (month && year) {
+      url += `&month=${month}&year=${year}`;
+    }
+    
+    const response = await api.get(url);
     return response.data;
   },
 

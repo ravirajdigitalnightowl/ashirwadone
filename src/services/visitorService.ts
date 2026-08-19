@@ -1,4 +1,4 @@
-
+// src/services/visitorService.ts
 import api from './api';
 
 export const visitorService = {
@@ -12,9 +12,13 @@ export const visitorService = {
     return response.data;
   },
 
-  // 🔥 UPDATE: Removed page and limit parameters
-  getActiveVisitors: async (timeRange: string = 'Today') => {
-    const response = await api.get(`/visitors/active?timeRange=${encodeURIComponent(timeRange)}`);
+  // 🔥 UPDATE: Added page, limit, month, and year for Infinite Scrolling & SaaS filtering
+  getActiveVisitors: async ({ timeRange = 'Today', month, year, pageParam = 1, limit = 10 }: any) => {
+    let url = `/visitors/active?timeRange=${encodeURIComponent(timeRange)}&page=${pageParam}&limit=${limit}`;
+    if (month && year) {
+      url += `&month=${month}&year=${year}`;
+    }
+    const response = await api.get(url);
     return response.data;
   },
 
@@ -42,9 +46,13 @@ export const visitorService = {
     return response.data;
   },
   
-  // 🔥 UPDATE: Removed page and limit parameters
-  getMyVisitors: async (timeRange: string = 'Today') => {
-    const response = await api.get(`/visitors/my-visitors?timeRange=${encodeURIComponent(timeRange)}`);
+  // 🔥 UPDATE: Added page, limit, month, and year for Infinite Scrolling & SaaS filtering
+  getMyVisitors: async ({ timeRange = 'Today', month, year, pageParam = 1, limit = 10 }: any) => {
+    let url = `/visitors/my-visitors?timeRange=${encodeURIComponent(timeRange)}&page=${pageParam}&limit=${limit}`;
+    if (month && year) {
+      url += `&month=${month}&year=${year}`;
+    }
+    const response = await api.get(url);
     return response.data;
   },
 };

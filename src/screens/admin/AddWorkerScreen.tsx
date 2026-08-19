@@ -1,7 +1,8 @@
-
+// src/screens/admin/AddWorkerScreen.tsx
 import React, { useState, useContext } from 'react';
-import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, TextInput, StyleSheet, Platform, Alert, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
+import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, TextInput, StyleSheet, Platform, Alert, KeyboardAvoidingView, ActivityIndicator, Image } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { launchCamera, ImageLibraryOptions } from 'react-native-image-picker'; 
 import { ThemeContext } from '../../context/ThemeContext';
 import { ThemeColors } from '../../theme/colors';
 
@@ -11,27 +12,46 @@ const AddWorkerScreen = ({ navigation }: any) => {
   const { theme } = useContext(ThemeContext);
   const styles = getStyles(theme);
 
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', password: '' });
+  // 🔥 UPDATE: Added new SaaS fields to state
+  const [formData, setFormData] = useState({ 
+    name: '', phone: '', email: '', password: '', 
+    aadharNo: '', shiftStart: '09:00 AM', shiftEnd: '06:00 PM' 
+  });
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
-  
-  // ✅ NAYA: Password ko show/hide karne ke liye state
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [photo, setPhoto] = useState<any>(null); // 🔥 NAYA: Photo state
 
   const { mutate: addWorker, isPending } = useAddWorker(() => navigation.goBack());
   
   const { data: deptData, isLoading: loadingDepts } = useDepartments();
   const activeDepartments = deptData?.data?.departments?.filter((d: any) => d.isActive) || [];
 
+  // 🔥 NAYA: Handle Camera Capture
+  const handleTakePhoto = () => {
+    const options: ImageLibraryOptions = { mediaType: 'photo', quality: 0.6, cameraType: 'back' };
+    launchCamera(options, (response) => {
+      if (response.didCancel) return;
+      if (response.errorCode) {
+        Alert.alert('Camera Error', response.errorMessage || 'Failed to open camera');
+        return;
+      }
+      if (response.assets && response.assets.length > 0) {
+        setPhoto(response.assets[0]);
+      }
+    });
+  };
+
   const handleRegister = () => {
-    if (!formData.name || !formData.phone || !formData.password || !selectedDept) {
-      Alert.alert('Incomplete Fields', 'Please provide the worker name, phone number, password, and select a department.');
+    if (!formData.name || !formData.phone || !formData.password || !selectedDept || !formData.aadharNo) {
+      Alert.alert('Incomplete Fields', 'Please provide the worker name, phone number, password, Aadhar Number, and select a department.');
       return;
     }
 
     addWorker({
       ...formData,
       department: selectedDept,
-      role: 'WORKER'
+      role: 'WORKER',
+      photoUrl: photo ? photo.uri : undefined // Send URI; backend handles string saving
     });
   };
 
@@ -46,6 +66,20 @@ const AddWorkerScreen = ({ navigation }: any) => {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          
+          {/* 🔥 NAYA: Profile Photo Capture */}
+          <Text style={styles.sectionTitle}>Staff Photo (Optional)</Text>
+          <TouchableOpacity style={styles.photoBtn} onPress={handleTakePhoto}>
+            {photo ? (
+              <Image source={{ uri: photo.uri }} style={styles.previewImage} />
+            ) : (
+              <>
+                <MaterialCommunityIcons name="camera-plus" size={40} color={theme.primary} />
+                <Text style={styles.photoText}>Capture Staff Photo</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
           <View style={styles.infoCard}>
             <MaterialCommunityIcons name="shield-key-outline" size={20} color={theme.primary} style={{ marginRight: 8 }} />
             <Text style={styles.infoText}>
@@ -82,6 +116,21 @@ const AddWorkerScreen = ({ navigation }: any) => {
               />
             </View>
 
+            {/* 🔥 NAYA: Aadhar Number Field */}
+            <View style={styles.inputContainer}>
+              <MaterialCommunityIcons name="card-account-details-outline" size={20} color={theme.iconMuted} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Aadhar Number"
+                placeholderTextColor={theme.textMuted}
+                keyboardType="number-pad"
+                maxLength={12}
+                value={formData.aadharNo}
+                onChangeText={(text) => setFormData({ ...formData, aadharNo: text })}
+                editable={!isPending}
+              />
+            </View>
+
             <View style={styles.inputContainer}>
               <MaterialCommunityIcons name="email-outline" size={20} color={theme.iconMuted} style={styles.inputIcon} />
               <TextInput
@@ -96,32 +145,49 @@ const AddWorkerScreen = ({ navigation }: any) => {
               />
             </View>
 
-            {/* ✅ UPDATE: Password Input Field with Eye Icon */}
             <View style={styles.inputContainer}>
               <MaterialCommunityIcons name="lock-outline" size={20} color={theme.iconMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Set Initial Password"
                 placeholderTextColor={theme.textMuted}
-                
-                // ✅ UPDATE: Hide/Show based on state
                 secureTextEntry={!isPasswordVisible} 
-                
                 value={formData.password}
                 onChangeText={(text) => setFormData({ ...formData, password: text })}
                 editable={!isPending}
               />
-              {/* ✅ NAYA: Password toggle button */}
-              <TouchableOpacity 
-                onPress={() => setIsPasswordVisible(!isPasswordVisible)} 
-                style={{ padding: 8 }}
-              >
-                <MaterialCommunityIcons 
-                  name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'} 
-                  size={20} 
-                  color={theme.iconMuted} 
-                />
+              <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)} style={{ padding: 8 }}>
+                <MaterialCommunityIcons name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.iconMuted} />
               </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* 🔥 NAYA: Duty Shift Timings */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>Shift Timings</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View style={[styles.inputContainer, { flex: 0.48 }]}>
+                <MaterialCommunityIcons name="clock-in" size={20} color={theme.iconMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Start (09:00 AM)"
+                  placeholderTextColor={theme.textMuted}
+                  value={formData.shiftStart}
+                  onChangeText={(text) => setFormData({ ...formData, shiftStart: text })}
+                  editable={!isPending}
+                />
+              </View>
+              <View style={[styles.inputContainer, { flex: 0.48 }]}>
+                <MaterialCommunityIcons name="clock-out" size={20} color={theme.iconMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="End (06:00 PM)"
+                  placeholderTextColor={theme.textMuted}
+                  value={formData.shiftEnd}
+                  onChangeText={(text) => setFormData({ ...formData, shiftEnd: text })}
+                  editable={!isPending}
+                />
+              </View>
             </View>
           </View>
 
@@ -182,6 +248,11 @@ const getStyles = (theme: ThemeColors) => StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: '800', color: theme.textMain },
   scrollContent: { padding: 20, paddingBottom: 40 },
   
+  // 🔥 NEW: Photo Button Styles
+  photoBtn: { backgroundColor: theme.surface, height: 160, borderRadius: 12, borderWidth: 1.5, borderColor: theme.border, alignItems: 'center', justifyContent: 'center', marginBottom: 24, overflow: 'hidden', borderStyle: 'dashed' },
+  previewImage: { width: '100%', height: '100%' },
+  photoText: { color: theme.primary, marginTop: 8, fontWeight: 'bold' },
+
   infoCard: { flexDirection: 'row', backgroundColor: theme.primaryLight, padding: 16, borderRadius: 12, marginBottom: 24, borderWidth: 1, borderColor: theme.primary + '30' },
   infoText: { flex: 1, fontSize: 13, color: theme.primary, lineHeight: 18, fontWeight: '500' },
 

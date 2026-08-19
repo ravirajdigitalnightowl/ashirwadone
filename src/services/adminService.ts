@@ -1,11 +1,15 @@
-
+// src/services/adminService.ts
 import api from './api';
 
 export const adminService = {
   // --- TICKET MANAGEMENT ---
-  // 🔥 UPDATE: Pagination parameters removed. Default timeRange set to 'This Month'
-  getAllTickets: async (status: string = 'All', timeRange: string = 'This Month') => {
-    const response = await api.get(`/admin/tickets?status=${status}&timeRange=${timeRange}`);
+  // 🔥 UPDATE: Added page, limit, month, and year for Infinite Scrolling & SaaS filtering
+  getAllTickets: async ({ status = 'All', timeRange = 'This Month', month, year, pageParam = 1, limit = 10 }: any) => {
+    let url = `/admin/tickets?status=${status}&timeRange=${timeRange}&page=${pageParam}&limit=${limit}`;
+    if (month && year) {
+      url += `&month=${month}&year=${year}`;
+    }
+    const response = await api.get(url);
     return response.data;
   },
 
@@ -28,9 +32,20 @@ export const adminService = {
     return response.data;
   },
 
+  // --- ATTENDANCE MANAGEMENT (🔥 NEW SAAS FEATURE) ---
+  getAttendanceReport: async ({ date, month, year, pageParam = 1, limit = 10 }: any) => {
+    let url = `/admin/attendance?page=${pageParam}&limit=${limit}`;
+    if (date) url += `&date=${date}`;
+    else if (month && year) url += `&month=${month}&year=${year}`;
+    
+    const response = await api.get(url);
+    return response.data;
+  },
+
   // --- WORKER MANAGEMENT ---
-  getAllWorkers: async (search: string = '', department: string = 'All') => {
-    let url = `/admin/workers?search=${encodeURIComponent(search)}`;
+  // 🔥 UPDATE: Added pagination parameters
+  getAllWorkers: async ({ search = '', department = 'All', pageParam = 1, limit = 10 }: any) => {
+    let url = `/admin/workers?search=${encodeURIComponent(search)}&page=${pageParam}&limit=${limit}`;
     if (department !== 'All') {
       url += `&department=${encodeURIComponent(department)}`;
     }
@@ -38,9 +53,22 @@ export const adminService = {
     return response.data;
   },
 
+  toggleWorkerStatus: async (data: { workerId: string; isActive: boolean }) => {
+    const response = await api.patch(`/admin/users/${data.workerId}/status`, { 
+      isActive: data.isActive 
+    });
+    return response.data;
+  },
+
+  addWorker: async (workerData: { name: string; phone: string; email?: string; department: string; role: string; shiftStart?: string; shiftEnd?: string; aadharNo?: string; photoUrl?: string }) => {
+    const response = await api.post('/admin/users', workerData); 
+    return response.data;
+  },
+
   // --- RESIDENT MANAGEMENT ---
-  getAllResidents: async (search: string = '') => {
-    const response = await api.get(`/admin/residents?search=${encodeURIComponent(search)}`);
+  // 🔥 UPDATE: Added pagination parameters
+  getAllResidents: async ({ search = '', pageParam = 1, limit = 10 }: any) => {
+    const response = await api.get(`/admin/residents?search=${encodeURIComponent(search)}&page=${pageParam}&limit=${limit}`);
     return response.data;
   },
 
@@ -53,18 +81,6 @@ export const adminService = {
 
   updateUser: async (data: { userId: string; updates: any }) => {
     const response = await api.patch(`/admin/users/${data.userId}`, data.updates);
-    return response.data;
-  },
-
-  toggleWorkerStatus: async (data: { workerId: string; isActive: boolean }) => {
-    const response = await api.patch(`/admin/users/${data.workerId}/status`, { 
-      isActive: data.isActive 
-    });
-    return response.data;
-  },
-
-  addWorker: async (workerData: { name: string; phone: string; email?: string; department: string; role: string }) => {
-    const response = await api.post('/admin/users', workerData); 
     return response.data;
   },
 

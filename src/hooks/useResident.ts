@@ -1,14 +1,21 @@
-
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+// src/hooks/useResident.ts
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { residentService } from '../services/residentService';
 import { Alert } from 'react-native';
 
-// 🔥 UPDATE: Removed page and limit parameters. Set default timeRange to 'This Month'
-export const useMyTickets = (status: string = 'All', timeRange: string = 'This Month') => {
-  return useQuery({
-    // Query key se page aur limit hata diya
-    queryKey: ['residentTickets', status, timeRange],
-    queryFn: () => residentService.getMyTickets(status, timeRange),
+// ==========================================
+// TICKET HOOKS
+// ==========================================
+
+// 🔥 UPDATE: Upgraded to useInfiniteQuery & added month/year filters
+export const useMyTickets = (status: string = 'All', timeRange: string = 'This Month', month?: string, year?: string) => {
+  return useInfiniteQuery({
+    queryKey: ['residentTickets', status, timeRange, month, year],
+    queryFn: ({ pageParam = 1 }) => residentService.getMyTickets({ status, timeRange, month, year, pageParam, limit: 10 }),
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.hasMore ? allPages.length + 1 : undefined;
+    },
+    initialPageParam: 1,
   });
 };
 
@@ -19,7 +26,7 @@ export const useCreateTicket = (onSuccessCallback?: () => void) => {
   return useMutation({
     mutationFn: residentService.createTicket,
     onSuccess: () => {
-      // Jadoo: Naya ticket bante hi Resident list ko background mein refresh kar do
+      // Naya ticket bante hi Resident list ko background mein refresh kar do
       queryClient.invalidateQueries({ queryKey: ['residentTickets'] });
       Alert.alert('Success', 'Complaint registered successfully! 🚨');
       if (onSuccessCallback) onSuccessCallback();
@@ -29,6 +36,25 @@ export const useCreateTicket = (onSuccessCallback?: () => void) => {
     },
   });
 };
+
+// ==========================================
+// POSTS / NOTICE BOARD HOOK (🔥 NEW SAAS FEATURE)
+// ==========================================
+
+export const useAllPosts = (type: string = 'All', month?: string, year?: string) => {
+  return useInfiniteQuery({
+    queryKey: ['residentPosts', type, month, year],
+    queryFn: ({ pageParam = 1 }) => residentService.getAllPosts({ type, month, year, pageParam, limit: 10 }),
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.hasMore ? allPages.length + 1 : undefined;
+    },
+    initialPageParam: 1,
+  });
+};
+
+// ==========================================
+// PROFILE & CATEGORIES
+// ==========================================
 
 // Hook: Update Profile
 export const useUpdateProfile = () => {

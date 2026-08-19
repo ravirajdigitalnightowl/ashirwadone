@@ -1,15 +1,23 @@
-
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+// src/hooks/useVisitor.ts
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { visitorService } from '../services/visitorService';
 import { Alert } from 'react-native';
 
-// 🔥 UPDATE: Removed page and limit for pagination
-export const useActiveVisitors = (timeRange: string = 'Today') => {
-  return useQuery({
-    // queryKey se page aur limit hata diya
-    queryKey: ['activeVisitors', timeRange], 
-    queryFn: () => visitorService.getActiveVisitors(timeRange),
+// ==========================================
+// ACTIVE VISITORS (SECURITY GUARD)
+// ==========================================
+
+// 🔥 UPDATE: Upgraded to useInfiniteQuery & added month/year filters
+export const useActiveVisitors = (timeRange: string = 'Today', month?: string, year?: string) => {
+  return useInfiniteQuery({
+    queryKey: ['activeVisitors', timeRange, month, year], 
+    queryFn: ({ pageParam = 1 }) => visitorService.getActiveVisitors({ timeRange, month, year, pageParam, limit: 10 }),
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.hasMore ? allPages.length + 1 : undefined;
+    },
+    initialPageParam: 1,
     // Har 10 second mein auto-refresh taaki resident ka approval turant dikh jaye
+    refetchInterval: 10000, 
   });
 };
 
@@ -52,6 +60,10 @@ export const useMarkExit = () => {
     },
   });
 };
+
+// ==========================================
+// RESIDENT VISITOR ACTIONS
+// ==========================================
 
 // Hook: Resident Responds (Approve/Deny)
 export const useRespondToEntry = (onSuccessCallback?: () => void) => {
@@ -100,11 +112,18 @@ export const useVerifyPasscode = (onSuccessCallback?: () => void) => {
   });
 };
 
-// Hook: Get Resident's Visitors
-// 🔥 UPDATE: Removed page and limit for pagination
-export const useMyVisitors = (timeRange: string = 'Today') => {
-  return useQuery({
-    queryKey: ['myVisitors', timeRange],
-    queryFn: () => visitorService.getMyVisitors(timeRange), 
+// ==========================================
+// MY VISITORS (RESIDENT)
+// ==========================================
+
+// 🔥 UPDATE: Upgraded to useInfiniteQuery & added month/year filters
+export const useMyVisitors = (timeRange: string = 'Today', month?: string, year?: string) => {
+  return useInfiniteQuery({
+    queryKey: ['myVisitors', timeRange, month, year],
+    queryFn: ({ pageParam = 1 }) => visitorService.getMyVisitors({ timeRange, month, year, pageParam, limit: 10 }),
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.hasMore ? allPages.length + 1 : undefined;
+    },
+    initialPageParam: 1,
   });
 };
