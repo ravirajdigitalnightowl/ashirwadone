@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "497525958273",
+    "project_id": "ashirwadone",
+    "storage_bucket": "ashirwadone.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:497525958273:android:dc05534b100f8ae2480f80",
+        "android_client_info": {
+          "package_name": "com.ashirwadone"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6v0aHcdZBsgU7SQY0yGJ_K7ckCfzNvfE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

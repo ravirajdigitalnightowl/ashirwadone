@@ -1,0 +1,1750 @@
+// src/config/cloudinary.js
+import { v2 as cloudinary } from 'cloudinary';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+export default cloudinary;
+
+// src/config/db.js
+import mongoose from 'mongoose';
+
+const connectDB = async () => {
+  try {
+    // 🔥 FIXED: Agar process.env.MONGO_URI undefined hoga, toh yeh local url ko default utha lega
+    const mongoUrl = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/ashirwad_db';
+    
+    const conn = await mongoose.connect(mongoUrl);
+    console.log(`MongoDB Connected: ${conn.connection.host} 🎉`);
+  } catch (error) {
+    console.error(`Error connecting to MongoDB ❌: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+export default connectDB;
+
+
+// src/config/firebase.js
+import admin from 'firebase-admin'; // Baki components ke fallback ke liye
+import { initializeApp, cert } from 'firebase-admin/app'; // Modern ESM submodule path 🔥
+import fs from 'fs';
+import path from 'path';
+
+try {
+  // JSON file ko read karna
+  const serviceAccountPath = path.resolve('./firebase-service-account.json');
+  const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+
+  // Ekdum modular aur clean initialization
+  initializeApp({
+    credential: cert(serviceAccount),
+  });
+
+  console.log('Firebase Admin SDK Initialized Successfully 🚀🔥');
+} catch (error) {
+  console.error('Firebase Initialization Error ❌:', error.message);
+}
+
+export default admin;
+
+import crypto from 'crypto';
+import User from '../models/User.js';
+import catchAsync from '../utils/catchAsync.js';
+import AppError from '../utils/AppError.js';
+import Ticket from '../models/Ticket.js';
+
+import Visitor from '../models/Visitor.js';
+
+
+export const getDashboardStats = catchAsync(async (req, res, next) => {
+  // Ticket stats
+  const ticketStats = await Ticket.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]);
+  
+  // Naya Data Fetching
+  const totalResidents = await User.countDocuments({ role: 'RESIDENT' });
+  const totalWorkers = await User.countDocuments({ role: 'WORKER' });
+  const activeVisitors = await Visitor.countDocuments({ status: { $in: ['Approved', 'Entered'] } });
+
+  const formattedStats = { 
+    pending: 0, inProgress: 0, resolved: 0,
+    totalResidents, 
+    totalWorkers, 
+    activeVisitors 
+  };
+
+  ticketStats.forEach(stat => {
+    if (stat._id === 'Pending') formattedStats.pending = stat.count;
+    if (stat._id === 'In-Progress') formattedStats.inProgress = stat.count;
+    if (stat._id === 'Resolved') formattedStats.resolved = stat.count;
+  });
+
+  res.status(200).json({ status: 'success', data: formattedStats });
+});
+
+
+// export const createUser = catchAsync(async (req, res, next) => {
+//   const { name, email, phone, role, flatNo, department } = req.body;
+
+//   if (!['RESIDENT', 'WORKER'].includes(role)) {
+//     return next(new AppError('Invalid role specified. Can only create RESIDENT or WORKER.', 400));
+//   }
+
+//   const generatedPassword = crypto.randomBytes(4).toString('hex');
+
+//   const newUser = await User.create({
+//     name, email, phone, role,
+//     password: generatedPassword,
+//     flatNo: role === 'RESIDENT' ? flatNo : undefined,
+//     department: role === 'WORKER' ? department : undefined
+//   });
+
+//   res.status(201).json({
+//     status: 'success',
+//     message: `${role} created successfully. Credentials queued for dispatch.`,
+//     data: {
+//       user: {
+//         _id: newUser._id,
+//         name: newUser.name,
+//         role: newUser.role,
+//         generatedPassword // Remove in production!
+//       }
+//     }
+//   });
+// });
+
+
+// export const createUser = catchAsync(async (req, res, next) => {
+//   const { name, email, phone, role, flatNo, department } = req.body;
+
+//   if (!['RESIDENT', 'WORKER'].includes(role)) {
+//     return next(new AppError('Invalid role specified. Can only create RESIDENT or WORKER.', 400));
+//   }
+
+//   const generatedPassword = crypto.randomBytes(4).toString('hex');
+
+//   const newUser = await User.create({
+//     name, email, phone, role,
+//     password: generatedPassword,
+//     flatNo: role === 'RESIDENT' ? flatNo : undefined,
+//     department: role === 'WORKER' ? department : undefined
+//   });
+
+//   // 🔥 ADDED: Terminal ke log mein generated password aur details print karne ke liye
+//   console.log('\n=============================================');
+//   console.log(`🔐 NEW ${role} CREATED SUCCESSFULLY`);
+//   console.log(`👤 Name: ${newUser.name}`);
+//   console.log(`📧 Email: ${newUser.email}`);
+//   console.log(`📞 Phone: ${newUser.phone}`);
+//   console.log(`🔑 Temporary Password: ${generatedPassword}`);
+//   console.log('=============================================\n');
+
+//   res.status(201).json({
+//     status: 'success',
+//     message: `${role} created successfully. Check backend console for credentials.`,
+//     data: {
+//       user: {
+//         _id: newUser._id,
+//         name: newUser.name,
+//         role: newUser.role,
+//         generatedPassword // Remove in production!
+//       }
+//     }
+//   });
+// });
+
+export const createUser = catchAsync(async (req, res, next) => {
+  // 🔥 UPDATE: Body se password aur tower dono destructure kar rahe hain
+  const { name, email, phone, role, tower, flatNo, department, password } = req.body;
+
+  if (!['RESIDENT', 'WORKER'].includes(role)) {
+    return next(new AppError('Invalid role specified. Can only create RESIDENT or WORKER.', 400));
+  }
+
+  if (!password) {
+    return next(new AppError('Please provide a password for the new user.', 400));
+  }
+
+  // 🔥 UPDATE: Admin ka diya hua password use kiya aur tower field add kiya
+  const newUser = await User.create({
+    name, 
+    email, 
+    phone, 
+    role,
+    password: password, 
+    tower: role === 'RESIDENT' ? tower : undefined, // 🔥 Added Tower
+    flatNo: role === 'RESIDENT' ? flatNo : undefined,
+    department: role === 'WORKER' ? department : undefined
+  });
+
+  console.log('\n=============================================');
+  console.log(`🔐 NEW ${role} CREATED MANUALLY BY ADMIN`);
+  console.log(`👤 Name: ${newUser.name}`);
+  console.log(`📧 Email: ${newUser.email}`);
+  console.log(`📞 Phone: ${newUser.phone}`);
+  if (role === 'RESIDENT') console.log(`🏢 Tower & Flat: ${tower} - ${flatNo}`);
+  console.log(`🔑 Assigned Password: ${password}`);
+  console.log('=============================================\n');
+
+  res.status(201).json({
+    status: 'success',
+    message: `${role} created successfully. Please share the credentials with the user.`,
+    data: {
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        role: newUser.role
+      }
+    }
+  });
+});
+
+// export const getAllWorkers = catchAsync(async (req, res, next) => {
+//   // Database se sirf WORKER role wale users nikalo
+//   const workers = await User.find({ role: 'WORKER' }).sort('-createdAt');
+
+//   res.status(200).json({
+//     status: 'success',
+//     results: workers.length,
+//     data: { workers }
+//   });
+// });
+
+
+export const getAllWorkers = catchAsync(async (req, res, next) => {
+  const { search, department } = req.query;
+  
+  let query = { role: 'WORKER' };
+
+  // Search logic (Name, Email, Phone)
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } },
+      { phone: { $regex: search, $options: 'i' } }
+    ];
+  }
+
+  // Department filter
+  if (department && department !== 'All') {
+    query.department = department;
+  }
+
+  const workers = await User.find(query).sort('-createdAt');
+
+  res.status(200).json({
+    status: 'success',
+    results: workers.length,
+    data: { workers }
+  });
+});
+
+export const toggleUserStatus = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.params.id);
+
+  if (!user) return next(new AppError('No user found with that ID', 404));
+  if (user.role === 'ADMIN') return next(new AppError('Cannot change status of an Admin account', 403));
+
+  user.isActive = !user.isActive;
+  await user.save({ validateBeforeSave: false });
+
+  res.status(200).json({
+    status: 'success',
+    message: `User account has been ${user.isActive ? 'activated' : 'suspended'}`,
+    data: { isActive: user.isActive }
+  });
+});
+
+// // 🔥 NAYA FUNCTION: Saare residents ki list fetch karne ke liye
+// export const getAllResidents = catchAsync(async (req, res, next) => {
+//   const residents = await User.find({ role: 'RESIDENT' }).sort('-createdAt');
+
+//   res.status(200).json({
+//     status: 'success',
+//     results: residents.length,
+//     data: { residents }
+//   });
+// });
+
+
+export const getAllResidents = catchAsync(async (req, res, next) => {
+  const { search } = req.query;
+  
+  let query = { role: 'RESIDENT' };
+
+  // Search logic (Name, Email, Phone, Tower, FlatNo)
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } },
+      { phone: { $regex: search, $options: 'i' } },
+      { flatNo: { $regex: search, $options: 'i' } },
+      { tower: { $regex: search, $options: 'i' } }
+    ];
+  }
+
+  const residents = await User.find(query).sort('-createdAt');
+
+  res.status(200).json({
+    status: 'success',
+    results: residents.length,
+    data: { residents }
+  });
+});
+
+export const updateUser = catchAsync(async (req, res, next) => {
+  // 🔥 UPDATE: tower ko destructure kiya
+  const { name, email, phone, tower, flatNo, department, password } = req.body;
+  const user = await User.findById(req.params.id);
+
+  if (!user) return next(new AppError('User not found', 404));
+
+  // Jo fields request mein aayengi, sirf unhe update karenge
+  if (name) user.name = name;
+  if (email) user.email = email;
+  if (phone) user.phone = phone;
+  
+  // 🔥 UPDATE: Tower aur FlatNo update logic (sirf residents ke liye)
+  if (tower && user.role === 'RESIDENT') user.tower = tower;
+  if (flatNo && user.role === 'RESIDENT') user.flatNo = flatNo;
+  
+  if (department && user.role === 'WORKER') user.department = department;
+  
+  // Agar Admin ne password reset kiya hai
+  if (password) {
+    user.password = password; // Mongoose pre-save hook isko automatically hash kar dega
+    console.log(`\n🔑 PASSWORD RESET FOR ${user.name}: ${password}\n`);
+  }
+
+  await user.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: 'User details updated successfully',
+    data: { user }
+  });
+});
+
+
+
+import User from '../models/User.js';
+import catchAsync from '../utils/catchAsync.js';
+import AppError from '../utils/AppError.js';
+import createSendToken from '../utils/createToken.js';
+
+export const setupAdmin = catchAsync(async (req, res, next) => {
+  const adminExists = await User.findOne({ role: 'ADMIN' });
+  if (adminExists) return next(new AppError('Admin already exists! Setup route is now locked.', 403));
+
+  const { name, email, phone, password } = req.body;
+  const admin = await User.create({ name, email, phone, password, role: 'ADMIN' });
+
+  createSendToken(admin, 201, res);
+});
+
+
+export const register = catchAsync(async (req, res, next) => {
+  const { name, email, phone, password, role, flatNo, department } = req.body;
+
+  // Security check: Is public route se koi ADMIN na ban paye
+  if (role === 'ADMIN') {
+    return next(new AppError('Admin account cannot be created via this route. Use /admin/setup instead.', 400));
+  }
+
+  // Naya user create karna (Mongoose schema automatic flatNo/department check kar lega)
+  const newUser = await User.create({
+    name,
+    email,
+    phone,
+    password,
+    role,
+    flatNo,
+    department
+  });
+
+  createSendToken(newUser, 201, res);
+});
+
+// export const login = catchAsync(async (req, res, next) => {
+//   const { email, password } = req.body;
+
+//   if (!email || !password) return next(new AppError('Please provide email and password!', 400));
+
+//   const user = await User.findOne({ email }).select('+password');
+
+//   if (!user || !(await user.correctPassword(password, user.password))) {
+//     return next(new AppError('Incorrect email or password', 401));
+//   }
+
+//   if (user.isActive === false) return next(new AppError('Your account has been suspended. Contact Admin.', 403));
+
+//   createSendToken(user, 200, res);
+// });
+
+
+export const login = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) return next(new AppError('Please provide email and password!', 400));
+
+  const user = await User.findOne({ email }).select('+password');
+
+  if (!user || !(await user.correctPassword(password, user.password))) {
+    return next(new AppError('Incorrect email or password', 401));
+  }
+
+  if (user.isActive === false) return next(new AppError('Your account has been suspended. Contact Admin.', 403));
+
+  // 🔥 NAYA UPDATE: Naye device se login hone par session version +1 kar do
+  // Agar pehle se sessionVersion nahi hai, toh (1 + 1) yani 2 set ho jayega.
+  user.sessionVersion = (user.sessionVersion || 1) + 1;
+  await user.save({ validateBeforeSave: false });
+
+  createSendToken(user, 200, res);
+});
+
+export const updateFCMToken = catchAsync(async (req, res, next) => {
+  const { fcmToken } = req.body;
+
+  // 🔥 UPDATE: '!fcmToken' ki jagah '=== undefined' kiya. Ab 'null' value allowed hai.
+  if (fcmToken === undefined) {
+    return next(new AppError('Please provide an FCM token', 400));
+  }
+
+  // Logged-in user ka token update ya clear kar rahe hain
+  const user = await User.findByIdAndUpdate(
+    req.user._id, 
+    { fcmToken }, 
+    { new: true, runValidators: false }
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: fcmToken ? 'FCM Token updated successfully' : 'FCM Token cleared successfully',
+    data: {
+      fcmToken: user.fcmToken
+    }
+  });
+});
+
+
+// export const updateFCMToken = catchAsync(async (req, res, next) => {
+//   const { fcmToken } = req.body;
+
+//   if (!fcmToken) {
+//     return next(new AppError('Please provide an FCM token', 400));
+//   }
+
+//   // Logged-in user ka token update kar rahe hain
+//   const user = await User.findByIdAndUpdate(
+//     req.user._id, 
+//     { fcmToken }, 
+//     { new: true, runValidators: false }
+//   );
+
+//   res.status(200).json({
+//     status: 'success',
+//     message: 'FCM Token updated successfully',
+//     data: {
+//       fcmToken: user.fcmToken
+//     }
+//   });
+// });
+
+import Department from '../models/Department.js';
+import catchAsync from '../utils/catchAsync.js';
+import AppError from '../utils/AppError.js';
+
+export const getAllDepartments = catchAsync(async (req, res, next) => {
+  const departments = await Department.find().sort('name'); // Saare layenge (Active/Inactive dono)
+  res.status(200).json({ status: 'success', data: { departments } });
+});
+
+export const createDepartment = catchAsync(async (req, res, next) => {
+  const { name } = req.body;
+  if (!name) return next(new AppError('Please provide a department name', 400));
+  
+  const newDept = await Department.create({ name });
+  res.status(201).json({ status: 'success', data: { department: newDept } });
+});
+
+export const updateDepartment = catchAsync(async (req, res, next) => {
+  const { name, isActive } = req.body;
+  const department = await Department.findByIdAndUpdate(
+    req.params.id, 
+    { name, isActive }, 
+    { new: true, runValidators: true }
+  );
+  if (!department) return next(new AppError('Department not found', 404));
+  
+  res.status(200).json({ status: 'success', data: { department } });
+});
+
+
+import Ticket from '../models/Ticket.js';
+import User from '../models/User.js';
+import catchAsync from '../utils/catchAsync.js';
+import AppError from '../utils/AppError.js';
+import { notificationQueue } from '../services/notificationQueue.js';
+
+export const createTicket = catchAsync(async (req, res, next) => {
+  const { title, category, description } = req.body;
+  
+  const mediaUrl = req.file ? req.file.path : '';
+
+  const newTicket = await Ticket.create({
+    title,
+    category,
+    description,
+    mediaUrl, 
+    createdBy: req.user._id,
+    timeline: [{
+      title: 'Complaint Registered',
+      notes: 'Ticket successfully created by resident.'
+    }]
+  });
+
+  const admins = await User.find({ role: 'ADMIN' });
+  
+  admins.forEach(admin => {
+    if (admin.fcmToken) {
+      const towerInfo = req.user.tower ? `Tower ${req.user.tower}, ` : '';
+      
+      notificationQueue.add('sendToAdmin', {
+        fcmToken: admin.fcmToken,
+        title: 'New Complaint Raised 🚨',
+        body: `${category} issue reported by ${towerInfo}Flat ${req.user.flatNo}`,
+        data: { type: 'NEW_COMPLAINT', ticketId: newTicket._id.toString() } 
+      });
+    }
+  });
+
+  res.status(201).json({
+    status: 'success',
+    data: { ticket: newTicket }
+  });
+});
+
+// 🔥 UPDATE: Resident tickets filter updated (Pagination removed, Specific Month added)
+export const getMyTickets = catchAsync(async (req, res, next) => {
+  const { status, timeRange } = req.query;
+  let query = { createdBy: req.user._id };
+
+  if (status && status !== 'All') query.status = status;
+
+  if (timeRange) {
+    const now = new Date();
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    if (timeRange === 'Today') {
+      query.createdAt = { $gte: new Date(now.setHours(0, 0, 0, 0)) };
+    } 
+    else if (timeRange === 'This Week') { 
+      const startDate = new Date(); 
+      startDate.setDate(now.getDate() - 7); 
+      query.createdAt = { $gte: startDate }; 
+    } 
+    else if (timeRange === 'This Month') { 
+      // Current month ka 1st day
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1); 
+      query.createdAt = { $gte: startDate }; 
+    } 
+    else if (months.includes(timeRange)) {
+      // Specific Month logic (e.g., 'August')
+      const monthIndex = months.indexOf(timeRange);
+      const startDate = new Date(now.getFullYear(), monthIndex, 1);
+      const endDate = new Date(now.getFullYear(), monthIndex + 1, 1); // Agle mahine ki 1st date
+      query.createdAt = { $gte: startDate, $lt: endDate };
+    }
+  }
+
+  // Pagination removed, sidha sort karke bhej do
+  const tickets = await Ticket.find(query).sort('-createdAt');
+
+  res.status(200).json({
+    status: 'success',
+    results: tickets.length,
+    data: { tickets }
+  });
+});
+
+
+// ==========================================
+// ADMIN ENDPOINTS
+// ==========================================
+
+// 🔥 UPDATE: Admin tickets filter updated (Pagination removed, Specific Month added)
+export const getAllTickets = catchAsync(async (req, res, next) => {
+  const { status, timeRange } = req.query;
+  let query = {};
+
+  if (status && status !== 'All') query.status = status;
+
+  if (timeRange) {
+    const now = new Date();
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    if (timeRange === 'Today') {
+      query.createdAt = { $gte: new Date(now.setHours(0, 0, 0, 0)) };
+    } 
+    else if (timeRange === 'This Week') { 
+      const startDate = new Date(); 
+      startDate.setDate(now.getDate() - 7); 
+      query.createdAt = { $gte: startDate }; 
+    } 
+    else if (timeRange === 'This Month') { 
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1); 
+      query.createdAt = { $gte: startDate }; 
+    } 
+    else if (months.includes(timeRange)) {
+      const monthIndex = months.indexOf(timeRange);
+      const startDate = new Date(now.getFullYear(), monthIndex, 1);
+      const endDate = new Date(now.getFullYear(), monthIndex + 1, 1); 
+      query.createdAt = { $gte: startDate, $lt: endDate };
+    }
+  }
+
+  const tickets = await Ticket.find(query).sort('-createdAt');
+
+  res.status(200).json({
+    status: 'success',
+    results: tickets.length,
+    data: { tickets }
+  });
+});
+
+export const assignTicket = catchAsync(async (req, res, next) => {
+  const { workerId, adminNoteForWorker, adminNoteForResident } = req.body;
+
+  const ticket = await Ticket.findById(req.params.id).populate('createdBy');
+  if (!ticket) return next(new AppError('Ticket not found', 404));
+
+  ticket.assignedTo = workerId;
+  ticket.status = 'In-Progress';
+  
+  if (adminNoteForWorker) ticket.adminNoteForWorker = adminNoteForWorker;
+  if (adminNoteForResident) ticket.adminNoteForResident = adminNoteForResident;
+
+  ticket.timeline.push({
+    title: 'Ticket Assigned to Staff',
+    notes: 'Admin has reviewed and assigned this ticket.'
+  });
+
+  await ticket.save();
+
+  const worker = await User.findById(workerId);
+
+  // 1. Worker ko notification
+  if (worker && worker.fcmToken) {
+    notificationQueue.add('sendToWorker', {
+      fcmToken: worker.fcmToken,
+      title: 'New Task Assigned 🛠️',
+      body: `Admin has assigned a new ticket to you. Tap to view.`,
+      data: { type: 'TASK_ASSIGNED', ticketId: ticket._id.toString() }
+    });
+  }
+
+  // 2. Resident ko notification
+  if (ticket.createdBy && ticket.createdBy.fcmToken) {
+    notificationQueue.add('sendToResident', {
+      fcmToken: ticket.createdBy.fcmToken,
+      title: 'Complaint Update 📢',
+      body: `Your complaint has been assigned to ${worker.name}.`,
+      data: { type: 'TICKET_UPDATED', ticketId: ticket._id.toString() }
+    });
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: { ticket }
+  });
+});
+
+
+// ==========================================
+// WORKER ENDPOINTS
+// ==========================================
+
+export const toggleDutyStatus = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.user._id);
+
+  user.isOnDuty = !user.isOnDuty;
+  await user.save({ validateBeforeSave: false });
+
+  res.status(200).json({
+    status: 'success',
+    message: `You are now ${user.isOnDuty ? 'On Duty' : 'Off Duty'}`,
+    data: {
+      isOnDuty: user.isOnDuty
+    }
+  });
+});
+
+// 🔥 UPDATE: Worker tasks filter updated (Pagination removed, Specific Month added)
+export const getWorkerTasks = catchAsync(async (req, res, next) => {
+  const { status, timeRange } = req.query;
+  let query = { assignedTo: req.user._id };
+
+  if (status && status !== 'All') query.status = status;
+
+  if (timeRange) {
+    const now = new Date();
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    if (timeRange === 'Today') {
+      query.updatedAt = { $gte: new Date(now.setHours(0, 0, 0, 0)) };
+    } 
+    else if (timeRange === 'This Week') { 
+      const startDate = new Date(); 
+      startDate.setDate(now.getDate() - 7); 
+      query.updatedAt = { $gte: startDate }; 
+    } 
+    else if (timeRange === 'This Month') { 
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1); 
+      query.updatedAt = { $gte: startDate }; 
+    } 
+    else if (months.includes(timeRange)) {
+      const monthIndex = months.indexOf(timeRange);
+      const startDate = new Date(now.getFullYear(), monthIndex, 1);
+      const endDate = new Date(now.getFullYear(), monthIndex + 1, 1); 
+      query.updatedAt = { $gte: startDate, $lt: endDate };
+    }
+  }
+
+  const tasks = await Ticket.find(query).sort('-updatedAt');
+
+  res.status(200).json({
+    status: 'success',
+    results: tasks.length,
+    data: { tasks }
+  });
+});
+
+// export const completeTask = catchAsync(async (req, res, next) => {
+//   const { workerNoteForAdmin, workerNoteForResident } = req.body;
+
+//   if (!workerNoteForAdmin || !workerNoteForResident) {
+//     return next(new AppError('Please provide both internal (admin) and external (resident) completion notes.', 400));
+//   }
+
+//   const ticket = await Ticket.findOne({ _id: req.params.id, assignedTo: req.user._id }).populate('createdBy');
+
+//   if (!ticket) {
+//     return next(new AppError('Task not found or not assigned to you', 404));
+//   }
+
+//   ticket.status = 'Resolved';
+//   ticket.workerNoteForAdmin = workerNoteForAdmin;
+//   ticket.workerNoteForResident = workerNoteForResident;
+  
+//   ticket.timeline.push({
+//     title: 'Resolution & Verification',
+//     notes: `Task resolved. (Staff Update: ${workerNoteForAdmin})`
+//   });
+
+//   await ticket.save();
+
+//   if (ticket.createdBy && ticket.createdBy.fcmToken) {
+//     await notificationQueue.add('sendToResident', {
+//       fcmToken: ticket.createdBy.fcmToken,
+//       title: 'Ticket Resolved ✅',
+//       body: `Your ticket "${ticket.title}" has been resolved by our staff.`,
+//       data: { type: 'TICKET_UPDATED', ticketId: ticket._id.toString() }
+//     });
+//   }
+
+//   const admins = await User.find({ role: 'ADMIN' });
+//   admins.forEach(admin => {
+//     if (admin.fcmToken) {
+//       notificationQueue.add('sendToAdmin', {
+//         fcmToken: admin.fcmToken,
+//         title: 'Task Resolved ✅',
+//         body: `Staff has resolved the ticket: "${ticket.title}".`,
+//         data: { type: 'TICKET_UPDATED', ticketId: ticket._id.toString() }
+//       });
+//     }
+//   });
+
+//   res.status(200).json({
+//     status: 'success',
+//     message: 'Task marked as resolved',
+//     data: { ticket }
+//   });
+// });
+
+
+export const completeTask = catchAsync(async (req, res, next) => {
+  const { workerNoteForAdmin, workerNoteForResident } = req.body;
+
+  if (!workerNoteForAdmin || !workerNoteForResident) {
+    return next(new AppError('Please provide both internal (admin) and external (resident) completion notes.', 400));
+  }
+
+  const ticket = await Ticket.findOne({ _id: req.params.id, assignedTo: req.user._id }).populate('createdBy');
+
+  if (!ticket) {
+    return next(new AppError('Task not found or not assigned to you', 404));
+  }
+
+  ticket.status = 'Resolved';
+  ticket.workerNoteForAdmin = workerNoteForAdmin;
+  ticket.workerNoteForResident = workerNoteForResident;
+  
+  // ✅ FIXED: Yahan se workerNoteForAdmin hata diya gaya hai.
+  // Frontend apna logic lagakar khud workerNoteForResident dikha dega.
+  ticket.timeline.push({
+    title: 'Resolution & Verification',
+    notes: `Task resolved successfully.` 
+  });
+
+  await ticket.save();
+
+  if (ticket.createdBy && ticket.createdBy.fcmToken) {
+    await notificationQueue.add('sendToResident', {
+      fcmToken: ticket.createdBy.fcmToken,
+      title: 'Ticket Resolved ✅',
+      body: `Your ticket "${ticket.title}" has been resolved by our staff.`,
+      data: { type: 'TICKET_UPDATED', ticketId: ticket._id.toString() }
+    });
+  }
+
+  const admins = await User.find({ role: 'ADMIN' });
+  admins.forEach(admin => {
+    if (admin.fcmToken) {
+      notificationQueue.add('sendToAdmin', {
+        fcmToken: admin.fcmToken,
+        title: 'Task Resolved ✅',
+        body: `Staff has resolved the ticket: "${ticket.title}".`,
+        data: { type: 'TICKET_UPDATED', ticketId: ticket._id.toString() }
+      });
+    }
+  });
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Task marked as resolved',
+    data: { ticket }
+  });
+});
+
+export const getTicket = catchAsync(async (req, res, next) => {
+  const ticket = await Ticket.findById(req.params.id);
+
+  if (!ticket) {
+    return next(new AppError('No ticket found with that ID', 404));
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: { ticket }
+  });
+});
+
+
+import Visitor from '../models/Visitor.js';
+import User from '../models/User.js';
+import catchAsync from '../utils/catchAsync.js';
+import AppError from '../utils/AppError.js';
+import { getMessaging } from 'firebase-admin/messaging'; // 🔥 Firebase Admin v12+
+
+export const searchSocietyFlats = async (req, res, next) => {
+  try {
+    const { tower, flatNo } = req.query;
+    let query = { role: 'RESIDENT' };
+
+    if (tower) {
+      query.tower = { $regex: tower, $options: 'i' };
+    }
+
+    if (flatNo) {
+      query.flatNo = { $regex: flatNo, $options: 'i' };
+    }
+
+    const residents = await User.find(query)
+      .select('name tower flatNo phone')
+      .limit(10); 
+
+    res.status(200).json({
+      status: 'success',
+      results: residents.length,
+      data: {
+        residents
+      }
+    });
+  } catch (error) {
+    next(new AppError('Error fetching society flats', 500));
+  }
+};
+
+export const requestEntry = catchAsync(async (req, res, next) => {
+  const { name, visitorType, phone, vehicleNo, tower, flatNo } = req.body;
+  
+  const photoUrl = req.file ? req.file.path : '';
+
+  const residentQuery = { role: 'RESIDENT', flatNo, isActive: true };
+  if (tower) residentQuery.tower = tower;
+  const resident = await User.findOne(residentQuery);
+
+  const newVisitor = await Visitor.create({
+    name, visitorType, phone, vehicleNo, tower, flatNo,
+    photoUrl,
+    residentId: resident ? resident._id : null,
+    guardId: req.user._id
+  });
+
+  if (resident && resident.fcmToken) {
+    try {
+      await getMessaging().send({
+        token: resident.fcmToken,
+        data: { 
+          type: 'GATE_APPROVAL', 
+          visitorId: newVisitor._id.toString(),
+          visitorName: name,
+          visitorType: visitorType,
+          vehicleNo: vehicleNo || 'N/A',
+          photoUrl: photoUrl 
+        },
+        android: { priority: 'high' },
+        apns: { payload: { aps: { 'content-available': 1 } } }
+      });
+    } catch (error) {
+      console.error("❌ Notification Error:", error.message);
+    }
+  }
+
+  res.status(201).json({
+    status: 'success',
+    message: resident ? 'Approval request sent to resident.' : 'Resident not registered, contact manually.',
+    data: { visitor: newVisitor, hasResidentApp: !!resident, residentPhone: resident?.phone }
+  });
+});
+
+export const respondToEntry = catchAsync(async (req, res, next) => {
+  const { status } = req.body; 
+  const visitorId = req.params.id;
+
+  const visitor = await Visitor.findById(visitorId).populate('guardId');
+  if (!visitor) return next(new AppError('Visitor not found', 404));
+
+  if (visitor.status !== 'Pending') {
+    return next(new AppError('This request has already been processed.', 400));
+  }
+
+  visitor.status = status;
+  if (status === 'Approved') visitor.entryTime = Date.now();
+  await visitor.save();
+
+  if (visitor.guardId && visitor.guardId.fcmToken) {
+    try {
+      await getMessaging().send({
+        token: visitor.guardId.fcmToken,
+        notification: {
+          title: `Entry ${status} ✅`,
+          body: `Flat ${visitor.flatNo} has ${status.toLowerCase()} entry for ${visitor.name}.`
+        },
+        data: { type: 'GATE_UPDATE', visitorId: visitor._id.toString() },
+        android: {
+          priority: 'high',
+          notification: { sound: 'default' }
+        },
+        apns: { payload: { aps: { sound: 'default' } } }
+      });
+      console.log(`✅ Direct notification sent to Guard FCM: ${visitor.guardId.fcmToken}`);
+    } catch (error) {
+      console.error("❌ Direct Firebase Notification Error (Guard):", error.message);
+    }
+  }
+
+  res.status(200).json({ status: 'success', data: { visitor } });
+});
+
+// 🔥 UPDATE: Added Specific Month support and removed pagination
+export const getActiveVisitors = catchAsync(async (req, res, next) => {
+  const { timeRange } = req.query; 
+  let query = {};
+
+  if (timeRange) {
+    const now = new Date();
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    if (timeRange === 'Today') {
+      query.updatedAt = { $gte: new Date(now.setHours(0, 0, 0, 0)) };
+    } 
+    else if (timeRange === 'This Week') { 
+      const startDate = new Date(); startDate.setDate(now.getDate() - 7); 
+      query.updatedAt = { $gte: startDate }; 
+    } 
+    else if (timeRange === 'This Month') { 
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1); 
+      query.updatedAt = { $gte: startDate }; 
+    } 
+    else if (months.includes(timeRange)) {
+      const monthIndex = months.indexOf(timeRange);
+      const startDate = new Date(now.getFullYear(), monthIndex, 1);
+      const endDate = new Date(now.getFullYear(), monthIndex + 1, 1);
+      query.updatedAt = { $gte: startDate, $lt: endDate };
+    }
+  } else {
+    // Default to Today if no timeRange provided at all (safety fallback)
+    const startOfToday = new Date(new Date().setHours(0, 0, 0, 0));
+    query.updatedAt = { $gte: startOfToday };
+  }
+
+  const visitors = await Visitor.find(query).sort('-updatedAt'); 
+
+  res.status(200).json({ 
+    status: 'success', 
+    results: visitors.length,
+    data: { visitors } 
+  });
+});
+
+export const markExit = catchAsync(async (req, res, next) => {
+  const visitor = await Visitor.findById(req.params.id);
+  if (!visitor) return next(new AppError('Visitor not found', 404));
+
+  visitor.status = 'Exited';
+  visitor.exitTime = Date.now();
+  await visitor.save();
+
+  res.status(200).json({ status: 'success', message: 'Visitor marked as exited.' });
+});
+
+export const createExpectedVisitor = catchAsync(async (req, res, next) => {
+  const { name, visitorType, phone, vehicleNo, expectedDate } = req.body;
+
+  const passcode = Math.floor(100000 + Math.random() * 900000).toString();
+
+  const newVisitor = await Visitor.create({
+    name,
+    visitorType,
+    phone,
+    vehicleNo,
+    tower: req.user.tower,
+    flatNo: req.user.flatNo,
+    residentId: req.user._id,
+    expectedDate: expectedDate || Date.now(),
+    passcode,
+    status: 'Expected'
+  });
+
+  res.status(201).json({
+    status: 'success',
+    message: 'Visitor invited successfully. Share the passcode with them.',
+    data: { visitor: newVisitor, passcode }
+  });
+});
+
+export const verifyAndEnter = catchAsync(async (req, res, next) => {
+  const { passcode } = req.body;
+
+  if (!passcode) return next(new AppError('Please provide a passcode', 400));
+
+  const visitor = await Visitor.findOne({ passcode, status: 'Expected' });
+
+  if (!visitor) {
+    return next(new AppError('Invalid passcode or visitor has already entered.', 404));
+  }
+
+  visitor.status = 'Entered';
+  visitor.entryTime = Date.now();
+  visitor.guardId = req.user._id; 
+  await visitor.save();
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Passcode verified. Entry allowed.',
+    data: { visitor }
+  });
+});
+
+// 🔥 UPDATE: Added Specific Month support and removed pagination
+export const getMyVisitors = catchAsync(async (req, res, next) => {
+  const { timeRange } = req.query; 
+  let query = { residentId: req.user._id };
+
+  if (timeRange) {
+    const now = new Date();
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    if (timeRange === 'Today') {
+      query.updatedAt = { $gte: new Date(now.setHours(0, 0, 0, 0)) };
+    } 
+    else if (timeRange === 'This Week') { 
+      const startDate = new Date(); startDate.setDate(now.getDate() - 7); 
+      query.updatedAt = { $gte: startDate }; 
+    } 
+    else if (timeRange === 'This Month') { 
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1); 
+      query.updatedAt = { $gte: startDate }; 
+    } 
+    else if (months.includes(timeRange)) {
+      const monthIndex = months.indexOf(timeRange);
+      const startDate = new Date(now.getFullYear(), monthIndex, 1);
+      const endDate = new Date(now.getFullYear(), monthIndex + 1, 1);
+      query.updatedAt = { $gte: startDate, $lt: endDate };
+    }
+  } else {
+    const startOfToday = new Date(new Date().setHours(0, 0, 0, 0));
+    query.updatedAt = { $gte: startOfToday };
+  }
+
+  const visitors = await Visitor.find(query).sort('-updatedAt');
+  
+  res.status(200).json({ 
+    status: 'success', 
+    results: visitors.length,
+    data: { visitors } 
+  });
+});
+
+
+import jwt from 'jsonwebtoken';
+import { promisify } from 'util';
+import AppError from '../utils/AppError.js';
+import catchAsync from '../utils/catchAsync.js';
+import User from '../models/User.js';
+
+export const protect = catchAsync(async (req, res, next) => {
+  let token;
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (!token) {
+    return next(new AppError('You are not logged in! Please log in to get access.', 401));
+  }
+
+  const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+
+  const currentUser = await User.findById(decoded.id);
+  if (!currentUser) {
+    return next(new AppError('The user belonging to this token does no longer exist.', 401));
+  }
+
+  // 🔥 NAYA UPDATE: Agar token ka sessionVersion aur current DB ka sessionVersion match nahi hota
+  // Toh iska matlab user ne kisi naye phone se login kar liya hai.
+  if (currentUser.sessionVersion && decoded.sessionVersion !== currentUser.sessionVersion) {
+    return next(new AppError('Session expired! You have logged in on a different device.', 401));
+  }
+
+  req.user = currentUser;
+  next();
+});
+
+export const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return next(new AppError('You do not have permission to perform this action', 403));
+    }
+    next();
+  };
+};
+
+
+import AppError from '../utils/AppError.js';
+
+// 1. Invalid ID format
+const handleCastErrorDB = err => {
+  const message = `Invalid ${err.path}: ${err.value}.`;
+  return new AppError(message, 400);
+};
+
+// 2. Duplicate field (Email/Phone)
+const handleDuplicateFieldsDB = err => {
+  const field = Object.keys(err.keyValue)[0];
+  const value = err.keyValue[field];
+  const message = `The ${field} "${value}" is already registered. Please use another.`;
+  return new AppError(message, 400);
+};
+
+// 3. Validation fail (YAHAN SE "User validation failed" HATEGA)
+const handleValidationErrorDB = err => {
+  // Mongoose ke error object se sirf humare banaye hue custom messages nikal rahe hain
+  const errors = Object.values(err.errors).map(el => el.message);
+  const message = `${errors.join('. ')}`; 
+  return new AppError(message, 400);
+};
+
+// JWT errors
+const handleJWTError = () => new AppError('Invalid token. Please log in again!', 401);
+const handleJWTExpiredError = () => new AppError('Your token has expired! Please log in again.', 401);
+
+export default (err, req, res, next) => {
+  err.statusCode = err.statusCode || 500;
+  err.status = err.status || 'error';
+
+  // 🔥 NAYA FIX: Error object ki copy banayi aur usme naam/message daal diya
+  let error = Object.assign({}, err);
+  error.name = err.name;
+  error.message = err.message;
+
+  // 👉 Error formatting ab yahan check hogi (Development aur Production DONO ke liye)
+  if (error.name === 'CastError') error = handleCastErrorDB(error);
+  if (error.code === 11000) error = handleDuplicateFieldsDB(error);
+  if (error.name === 'ValidationError') error = handleValidationErrorDB(error);
+  if (error.name === 'JsonWebTokenError') error = handleJWTError();
+  if (error.name === 'TokenExpiredError') error = handleJWTExpiredError();
+
+  // Development Mode Response
+  if (process.env.NODE_ENV === 'development') {
+    res.status(error.statusCode || 500).json({
+      status: error.status || 'error',
+      error: error,
+      message: error.message, // ✅ Ab yahan hamesha clean custom message jayega
+      stack: err.stack,
+    });
+  } 
+  // Production Mode Response
+  else {
+    if (error.isOperational) {
+      res.status(error.statusCode).json({
+        status: error.status,
+        message: error.message,
+      });
+    } else {
+      console.error('ERROR 💥', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Something went wrong on the server.',
+      });
+    }
+  }
+};
+
+// src/middlewares/uploadMiddleware.js
+import multer from 'multer';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import cloudinary from '../config/cloudinary.js';
+import AppError from '../utils/AppError.js';
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'ashirwad_tickets', // Cloudinary mein is folder ke andar saari files jayengi
+    allowed_formats: ['jpg', 'jpeg', 'png', 'mp4', 'mov'], // Images aur videos allow karein
+    resource_type: 'auto', // 'auto' rakhne se ye apne aap detect kar lega ki photo hai ya video
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new AppError('Only images and videos are allowed!', 400), false);
+    }
+  }
+});
+
+export default upload;
+
+
+import mongoose from 'mongoose';
+
+const departmentSchema = new mongoose.Schema({
+  name: { 
+    type: String, 
+    required: [true, 'Please provide a department name'], 
+    unique: true,
+    trim: true,
+    // 🔥 NAYA: Department ke naam par limits aur custom messages laga diye hain
+    minlength: [2, 'Department name must be at least 2 characters long'],
+    maxlength: [40, 'Department name cannot exceed 40 characters']
+  },
+  isActive: { 
+    type: Boolean, 
+    default: true 
+  }
+}, { timestamps: true });
+
+const Department = mongoose.model('Department', departmentSchema);
+export default Department;
+
+
+import mongoose from 'mongoose';
+
+const timelineSchema = new mongoose.Schema({
+  title: String,
+  date: { type: Date, default: Date.now },
+  isCompleted: { type: Boolean, default: true },
+  notes: String
+}, { _id: false });
+
+const ticketSchema = new mongoose.Schema({
+  title: { 
+    type: String, 
+    required: [true, 'Please provide a title for the ticket'], 
+    trim: true,
+    // 🔥 NAYA: Title ki length limit set ki hai
+    minlength: [3, 'Ticket title must be at least 3 characters long'],
+    maxlength: [100, 'Ticket title cannot exceed 100 characters']
+  },
+  category: { 
+    type: String, 
+    required: [true, 'Please select a category for your ticket'] 
+  },
+  description: { 
+    type: String, 
+    required: [true, 'Please provide a detailed description'],
+    // 🔥 NAYA: Description ko lamba rakhne ke liye limit lagayi hai
+    minlength: [10, 'Description must be at least 10 characters long so we can understand the issue clearly'],
+    maxlength: [1000, 'Description cannot exceed 1000 characters']
+  },
+  
+  // Media Store karne ke liye
+  mediaUrl: { type: String },
+
+  status: { 
+    type: String, 
+    // 🔥 NAYA: Enum mein custom message add kiya taaki invalid status set na ho sake
+    enum: {
+      values: ['Pending', 'In-Progress', 'Resolved'],
+      message: '{VALUE} is not a valid ticket status'
+    }, 
+    default: 'Pending' 
+  },
+  
+  createdBy: { type: mongoose.Schema.ObjectId, ref: 'User', required: [true, 'Ticket must belong to a resident'] },
+  assignedTo: { type: mongoose.Schema.ObjectId, ref: 'User' },
+  
+  // 4-Note Communication System
+  adminNoteForWorker: { type: String },
+  adminNoteForResident: { type: String },
+  workerNoteForAdmin: { type: String },
+  workerNoteForResident: { type: String },
+  
+  timeline: [timelineSchema]
+}, { timestamps: true });
+
+ticketSchema.pre(/^find/, function() {
+  // 🔥 UPDATE: 'tower' ko select list mein add kiya gaya hai
+  this.populate({ path: 'createdBy', select: 'name phone tower flatNo email' })
+      .populate({ path: 'assignedTo', select: 'name phone department' });
+});
+
+const Ticket = mongoose.model('Ticket', ticketSchema);
+export default Ticket;
+
+
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
+
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: [true, 'Please provide a name'], trim: true },
+  email: { type: String, required: [true, 'Please provide an email'], unique: true, lowercase: true },
+  phone: { type: String, required: [true, 'Please provide a phone number'], unique: true },
+  
+  // 🔥 UPDATE: Yahan minlength mein custom error message add kar diya gaya hai
+  password: { 
+    type: String, 
+    required: [true, 'Please provide a password'], 
+    minlength: [8, 'Password must be at least 8 characters long'], 
+    select: false 
+  },
+  
+  role: { type: String, enum: ['ADMIN', 'RESIDENT', 'WORKER'], required: true },
+  
+  flatNo: { type: String, required: function() { return this.role === 'RESIDENT'; } },
+  tower: { type: String, required: function() { return this.role === 'RESIDENT'; } },
+  // 🔥 FIXED: Removed the 'enum' array so any dynamic department name can be saved without validation errors.
+  department: { 
+    type: String, 
+    trim: true,
+    required: function() { return this.role === 'WORKER'; } 
+  },
+  
+  isActive: { type: Boolean, default: true },
+  isOnDuty: { type: Boolean, default: true },
+  fcmToken: { type: String },
+  sessionVersion: { type: Number, default: 1 }
+}, { timestamps: true });
+
+// 🔥 FIXED: Removed the 'next' parameter. 
+// Mongoose natively awaits this function and knows to proceed when the Promise resolves.
+userSchema.pre('save', async function() {
+  if (!this.isModified('password')) return;
+  this.password = await bcrypt.hash(this.password, 12);
+});
+
+userSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
+  return await bcrypt.compare(candidatePassword, userPassword);
+};
+
+const User = mongoose.model('User', userSchema);
+export default User;
+
+
+// src/models/Visitor.js
+import mongoose from 'mongoose';
+
+const visitorSchema = new mongoose.Schema({
+  name: { 
+    type: String, 
+    required: [true, 'Please provide the visitor name'], 
+    trim: true,
+    // 🔥 NAYA: Name par length validation add kiya
+    minlength: [2, 'Visitor name must be at least 2 characters long'],
+    maxlength: [50, 'Visitor name cannot exceed 50 characters']
+  },
+  visitorType: { 
+    type: String, 
+    required: [true, 'Please select the type of visitor'],
+    // 🔥 NAYA: Enum mein custom message add kiya
+    enum: {
+      values: ['Delivery', 'Guest', 'Cab', 'Service', 'Other'],
+      message: '{VALUE} is not a valid visitor type'
+    }
+  },
+  phone: { 
+    type: String, 
+    trim: true,
+    // 🔥 NAYA: Phone number format ki basic limit
+    minlength: [10, 'Phone number must be at least 10 digits'],
+    maxlength: [15, 'Phone number cannot exceed 15 digits']
+  },
+  vehicleNo: { 
+    type: String, 
+    trim: true,
+    maxlength: [20, 'Vehicle number cannot exceed 20 characters']
+  },
+  
+  tower: { type: String, trim: true },
+  flatNo: { 
+    type: String, 
+    required: [true, 'Flat number is required to register a visitor'],
+    trim: true
+  },
+  residentId: { type: mongoose.Schema.ObjectId, ref: 'User' },
+  guardId: { type: mongoose.Schema.ObjectId, ref: 'User' }, // Guard pehle se known nahi hoga pre-approval mein
+  
+  photoUrl: { type: String }, 
+  
+  // Passcode for Pre-approved Visitors
+  passcode: { type: String }, 
+  expectedDate: { type: Date }, // Kis din aane wala hai
+  
+  status: { 
+    type: String, 
+    // 🔥 NAYA: Status Enum ke liye custom error message
+    enum: {
+      values: ['Pending', 'Expected', 'Approved', 'Denied', 'Entered', 'Exited'], 
+      message: '{VALUE} is not a valid visitor status'
+    },
+    default: 'Pending' 
+  },
+  entryTime: { type: Date },
+  exitTime: { type: Date }
+}, { timestamps: true });
+
+const Visitor = mongoose.model('Visitor', visitorSchema);
+export default Visitor;
+
+import express from 'express';
+import { createUser, toggleUserStatus, getDashboardStats, getAllWorkers, getAllResidents, updateUser } from '../controllers/adminController.js';
+import { getAllTickets, assignTicket,getTicket } from '../controllers/ticketController.js';
+import { getAllDepartments, createDepartment, updateDepartment } from '../controllers/departmentController.js';
+import { protect, restrictTo } from '../middlewares/authMiddleware.js';
+
+const router = express.Router();
+
+router.use(protect);
+router.use(restrictTo('ADMIN'));
+router.get('/dashboard/stats', getDashboardStats);
+router.get('/workers', getAllWorkers);
+router.post('/users', createUser);
+router.get('/residents', getAllResidents);
+router.patch('/users/:id/status', toggleUserStatus);
+router.patch('/users/:id', updateUser);
+router.get('/tickets', getAllTickets);
+router.get('/tickets/:id', getTicket);
+router.patch('/tickets/:id/assign', assignTicket);
+router.route('/departments')
+  .get(getAllDepartments)
+  .post(createDepartment);
+
+router.route('/departments/:id')
+  .patch(updateDepartment);
+
+export default router;
+
+import express from 'express';
+import { setupAdmin, login, register, updateFCMToken } from '../controllers/authController.js';
+import { protect } from '../middlewares/authMiddleware.js';
+const router = express.Router();
+
+router.post('/admin/setup', setupAdmin);
+router.post('/login', login);
+router.post('/register', register);
+router.patch('/update-fcm', protect, updateFCMToken);
+export default router;
+
+import express from 'express';
+import { createTicket, getMyTickets } from '../controllers/ticketController.js';
+import { getAllDepartments } from '../controllers/departmentController.js';
+import upload from '../middlewares/uploadMiddleware.js';
+import { protect, restrictTo } from '../middlewares/authMiddleware.js';
+
+const router = express.Router();
+
+// Sirf RESIDENT access kar sakta hai
+router.use(protect);
+router.use(restrictTo('RESIDENT'));
+router.get('/categories', getAllDepartments);
+router.route('/tickets')
+  .post(upload.single('media'), createTicket)
+  .get(getMyTickets);
+
+export default router;
+
+// // src/routes/visitorRoutes.js
+// import express from 'express';
+// import { requestEntry, respondToEntry, getActiveVisitors, markExit } from '../controllers/visitorController.js';
+// import { protect, restrictTo } from '../middlewares/authMiddleware.js';
+
+// const router = express.Router();
+
+// router.use(protect);
+
+// // Guard Routes
+// router.post('/request-entry', restrictTo('WORKER', 'ADMIN'), requestEntry);
+// router.get('/active', restrictTo('WORKER', 'ADMIN'), getActiveVisitors);
+// router.patch('/:id/exit', restrictTo('WORKER', 'ADMIN'), markExit);
+
+// // Resident Routes
+// router.patch('/:id/respond', restrictTo('RESIDENT'), respondToEntry);
+
+// export default router;
+
+
+
+
+// src/routes/visitorRoutes.js
+import express from 'express';
+import { requestEntry, respondToEntry, getActiveVisitors, markExit, searchSocietyFlats, createExpectedVisitor, verifyAndEnter, getMyVisitors} from '../controllers/visitorController.js';
+import { protect, restrictTo } from '../middlewares/authMiddleware.js';
+import upload from '../middlewares/uploadMiddleware.js'; // 🔥 NAYA IMPORT
+
+const router = express.Router();
+router.use(protect);
+
+// 🔥 UPDATE: upload.single('photo') middleware add kiya gaya
+router.post('/request-entry', restrictTo('WORKER', 'ADMIN'), upload.single('photo'), requestEntry);
+
+router.get('/active', restrictTo('WORKER', 'ADMIN'), getActiveVisitors);
+router.patch('/:id/exit', restrictTo('WORKER', 'ADMIN'), markExit);
+router.patch('/:id/respond', restrictTo('RESIDENT'), respondToEntry);
+router.get('/society-flats', restrictTo('WORKER', 'ADMIN'), searchSocietyFlats);
+router.post('/invite', restrictTo('RESIDENT'), createExpectedVisitor);
+router.get('/my-visitors', restrictTo('RESIDENT'), getMyVisitors);
+// Guard passcode verify karega
+router.post('/verify-passcode', restrictTo('WORKER', 'ADMIN'), verifyAndEnter);
+
+export default router;
+
+import express from 'express';
+import { getWorkerTasks, completeTask, toggleDutyStatus } from '../controllers/ticketController.js';
+import { protect, restrictTo } from '../middlewares/authMiddleware.js';
+
+const router = express.Router();
+
+// Sirf WORKER access kar sakta hai
+router.use(protect);
+router.use(restrictTo('WORKER'));
+
+router.get('/tasks', getWorkerTasks);
+router.patch('/tasks/:id/complete', completeTask);
+router.patch('/profile/duty', toggleDutyStatus);
+
+export default router;
+
+
+
+
+// src/services/notificationQueue.js
+import { Queue, Worker } from 'bullmq';
+import IORedis from 'ioredis';
+import '../config/firebase.js'; // Tumhara Firebase initialize karne wali file 
+import { getMessaging } from 'firebase-admin/messaging'; // 🔥 NAYA IMPORT: Modular Firebase Messaging ke liye
+
+// Redis Connection URL (Render Environment variable se ya local fallback)
+const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+
+// Connection options setup (BullMQ ki requirement)
+const connectionOptions = {
+  maxRetriesPerRequest: null, 
+};
+
+// 🔥 NAYA UPDATE: Upstash (rediss://) secure connection ke liye TLS config zaroori hai
+if (redisUrl.startsWith('rediss://')) {
+  connectionOptions.tls = { rejectUnauthorized: false };
+}
+
+// Redis Connection
+const connection = new IORedis(redisUrl, connectionOptions);
+
+// Create Queue
+export const notificationQueue = new Queue('notifications', { connection });
+
+// Background Worker jo Firebase ke through message bhejega
+const worker = new Worker('notifications', async (job) => {
+  // Controller se jo data aayega wo job.data mein hoga
+  const { title, body, fcmToken, data } = job.data;
+  
+  if (!fcmToken) {
+    throw new Error('FCM Token is missing. Cannot send notification.');
+  }
+
+  // Firebase Message Format
+  const message = {
+    notification: {
+      title: title,
+      body: body,
+    },
+    // Firestore/JSON fields mein null/undefined values allowed nahi hain, isliye keys ko string banaya hai
+    data: data || {}, // Agar app open hone par kisi specific screen par bhejna ho (Deep linking)
+    token: fcmToken,
+  };
+
+  try {
+    // 🔥 NAYA UPDATE: Actual push notification send karna modular approach se
+    const response = await getMessaging().send(message);
+    console.log(`Successfully sent message to ${fcmToken}:`, response);
+    return response;
+  } catch (error) {
+    console.error(`Error sending message to ${fcmToken}:`, error);
+    throw error; // Throw error taaki BullMQ retry kar sake agar fail ho jaye
+  }
+}, { connection });
+
+worker.on('completed', job => {
+  console.log(`Notification Job ${job.id} completed!`);
+});
+
+worker.on('failed', (job, err) => {
+  console.error(`Notification Job ${job.id} failed: ${err.message}`);
+});
+
+export default class AppError extends Error {
+  constructor(message, statusCode) {
+    super(message);
+    this.statusCode = statusCode;
+    this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
+    this.isOperational = true;
+
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+export default (fn) => {
+  return (req, res, next) => {
+    fn(req, res, next).catch(next);
+  };
+};
+
+
+// src/utils/createToken.js
+import jwt from 'jsonwebtoken';
+
+// 🔥 UPDATE: id ke sath sessionVersion bhi token me encode hoga
+const signToken = (id, sessionVersion) => {
+  return jwt.sign({ id, sessionVersion }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  });
+};
+
+const createSendToken = (user, statusCode, res) => {
+  // 🔥 UPDATE: yahan user.sessionVersion pass kiya
+  const token = signToken(user._id, user.sessionVersion);
+
+  user.password = undefined;
+
+  res.status(statusCode).json({
+    status: 'success',
+    token,
+    data: { user },
+  });
+};
+
+export default createSendToken;
+
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
+import globalErrorHandler from './middlewares/errorController.js';
+import AppError from './utils/AppError.js';
+
+import authRoutes from './routes/authRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
+
+import residentRoutes from './routes/residentRoutes.js'; 
+import workerRoutes from './routes/workerRoutes.js';     
+import visitorRoutes from './routes/visitorRoutes.js';
+const app = express();
+
+app.use(helmet());
+app.use(cors());
+app.use(express.json({ limit: '10kb' }));
+
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+}
+
+const limiter = rateLimit({
+  max: 100,
+  windowMs: 15 * 60 * 1000,
+  message: 'Too many requests from this IP, please try again in an hour!'
+});
+app.use('/api', limiter);
+
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+
+app.use('/api/resident', residentRoutes); 
+app.use('/api/worker', workerRoutes); 
+app.use('/api/visitors', visitorRoutes);    
+
+// 🔥 ULTIMATE FIXED FOR EXPRESS V5: Path string ko poori tarah hata kar sirf app.use() kiya.
+// Jo bhi request upar ke kisi route se match nahi hogi, wo direct isme aakar 404 error ban jayegi.
+app.use((req, res, next) => {
+  next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
+});
+
+app.use(globalErrorHandler);
+
+export default app;
+
+// src/server.js
+import 'dotenv/config'; // 🔥 FIXED FOR ESM: Yeh hamesha line 1 par hona chahiye taaki baaki saare imports se pehle chal sake
+
+import app from './app.js';
+import connectDB from './config/db.js';
+
+// Ab database connect smoothly hoga kyunki use variables mil chuke hain
+connectDB();
+
+const PORT = process.env.PORT || 5000;
+
+const server = app.listen(PORT, () => {
+  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.log('UNHANDLED REJECTION! 💥 Shutting down...');
+  console.log(err.name, err.message);
+  server.close(() => {
+    process.exit(1);
+  });
+});
