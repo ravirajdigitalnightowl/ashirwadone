@@ -17,10 +17,26 @@ const AdminComplaintsScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
   // Inline Chip toggle ke liye state
   const [isMonthView, setIsMonthView] = useState(false);
 
-  // React Query Hook (Stats aur Pagination hata diya hai)
-  const { data: ticketsData, isLoading: loadingTickets, refetch, isRefetching } = useAllTickets(statusFilter, dateFilter);
+  // 🔥 FIX: Extracting Infinite Query properties (fetchNextPage, hasNextPage, etc.)
+  const { 
+    data: ticketsData, 
+    isLoading: loadingTickets, 
+    refetch, 
+    isRefetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useAllTickets(statusFilter, dateFilter);
 
-  const allTickets = ticketsData?.data?.tickets || [];
+  // 🔥 FIX: Correct way to extract data from useInfiniteQuery
+  const allTickets = ticketsData?.pages?.flatMap(page => page?.data?.tickets || []) || [];
+
+  // 🔥 FIX: Infinite Scroll Load More handler
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  };
 
   const renderTicket = useCallback(({ item }: any) => {
     const statusColor = item.status === 'Pending' ? theme.status.pending : item.status === 'Resolved' ? theme.status.resolved : theme.status.inProgress;
@@ -64,7 +80,6 @@ const AdminComplaintsScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
       
       <View style={styles.header}>
         <View>
-          {/* 🔥 UPDATE: Title aur subtitle ko Complaints context ke hisaab se change kiya */}
           <Text style={styles.greeting}>Complaints</Text>
           <Text style={styles.subtitle}>Manage all society requests here</Text>
         </View>
@@ -76,7 +91,6 @@ const AdminComplaintsScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
           
           {isMonthView ? (
             <>
-              {/* Back Button to exit Month View */}
               <TouchableOpacity 
                 style={styles.backIconBtn} 
                 onPress={() => setIsMonthView(false)}
@@ -84,7 +98,6 @@ const AdminComplaintsScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
                 <MaterialCommunityIcons name="arrow-left" size={20} color={theme.textMain} />
               </TouchableOpacity>
 
-              {/* Months List */}
               {monthFilters.map((month) => (
                 <TouchableOpacity 
                   key={month}
@@ -100,21 +113,19 @@ const AdminComplaintsScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
             </>
           ) : (
             <>
-              {/* Standard Filters List */}
               {standardDateFilters.map((range) => (
                 <TouchableOpacity 
                   key={range}
                   style={[
                     styles.filterTab, 
-                    // 'By Month' ko tabhi highlight karein agar current dateFilter kisi specific month ka naam ho
                     (dateFilter === range || (range === 'By Month' && monthFilters.includes(dateFilter))) 
                       && { backgroundColor: theme.primary + '20', borderColor: theme.primary }
                   ]}
                   onPress={() => { 
                     if (range === 'By Month') {
-                      setIsMonthView(true); // Switch to Month view
+                      setIsMonthView(true);
                     } else {
-                      setDateFilter(range); // Set Standard filter
+                      setDateFilter(range);
                     }
                   }}
                 >
@@ -123,7 +134,6 @@ const AdminComplaintsScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
                     (dateFilter === range || (range === 'By Month' && monthFilters.includes(dateFilter))) 
                       && { color: theme.primary }
                   ]}>
-                    {/* Agar specific month selected hai toh button pe wo month dikhaye, nahi toh 'By Month' */}
                     {range === 'By Month' && monthFilters.includes(dateFilter) ? dateFilter : range}
                   </Text>
                 </TouchableOpacity>
@@ -156,6 +166,14 @@ const AdminComplaintsScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
           data={allTickets}
           keyExtractor={item => item._id}
           renderItem={renderTicket}
+          // 🔥 FIX: Infinite Scroll Props
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <ActivityIndicator color={theme.primary} style={{ marginVertical: 20 }} />
+            ) : null
+          }
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.primary} />}
@@ -176,7 +194,6 @@ const getStyles = (theme: ThemeColors) => StyleSheet.create({
   filterTab: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: theme.border, marginRight: 8, backgroundColor: theme.surface },
   filterText: { fontSize: 13, fontWeight: '600', color: theme.textMuted },
   
-  // Back Icon
   backIconBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: 1, borderColor: theme.border },
 
   listContainer: { paddingHorizontal: 24, paddingBottom: 100 },

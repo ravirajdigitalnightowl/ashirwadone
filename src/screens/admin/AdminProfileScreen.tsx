@@ -1,4 +1,3 @@
-
 import React, { useContext } from 'react';
 import { View, Text, SafeAreaView, TouchableOpacity, ScrollView, Switch, StyleSheet, Platform } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -62,6 +61,11 @@ const AdminProfileScreen: React.FC<AdminProfileProps> = ({ navigation }) => {
           
           <Text style={styles.userName}>{userData?.name || 'Admin User'}</Text>
           
+          {/* 🔥 NAYA: Society Name Display */}
+          {userData?.societyId?.name && (
+            <Text style={styles.societyNameText}>{userData.societyId.name}</Text>
+          )}
+          
           <View style={styles.roleBadge}>
             <Text style={styles.roleText}>ADMINISTRATOR</Text>
           </View>
@@ -87,6 +91,25 @@ const AdminProfileScreen: React.FC<AdminProfileProps> = ({ navigation }) => {
         </View>
 
         <View style={styles.menuContainer}>
+          
+          {/* 🔥 NAYA: Society Management Section */}
+          <Text style={styles.sectionTitle}>Society Management</Text>
+          <MenuItem 
+            icon="palette-outline" 
+            title="Society Branding" 
+            onPress={() => navigation.navigate('SocietyBrandingScreen')} 
+          />
+          <MenuItem 
+            icon="bullhorn-outline" 
+            title="Notice Board" 
+            onPress={() => navigation.navigate('AdminPostsListScreen')} 
+          />
+          <MenuItem 
+            icon="clock-time-eight-outline" 
+            title="Attendance Report" 
+            onPress={() => navigation.navigate('AttendanceReportScreen')} 
+          />
+
           <Text style={styles.sectionTitle}>App Settings</Text>
           
           <MenuItem 
@@ -126,7 +149,14 @@ const getStyles = (theme: ThemeColors) => StyleSheet.create({
     marginBottom: 16,
     borderWidth: 2, borderColor: theme.primary
   },
-  userName: { fontSize: 24, fontWeight: '700', color: theme.textMain, marginBottom: 8 },
+  userName: { fontSize: 24, fontWeight: '700', color: theme.textMain, marginBottom: 4 },
+  // 🔥 NAYA: Society Name Style
+  societyNameText: { 
+    fontSize: 14, 
+    color: theme.textMuted, 
+    marginBottom: 10, 
+    fontWeight: '500' 
+  },
   roleBadge: { backgroundColor: theme.primaryLight, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, marginBottom: 20 },
   roleText: { color: theme.primary, fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
   

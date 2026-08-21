@@ -5,7 +5,6 @@ import { ThemeContext } from '../../context/ThemeContext';
 import { ThemeColors } from '../../theme/colors';
 import { AuthContext } from '../../context/AuthContext';
 
-// 🔥 UPDATE: useAllTickets bhi import kiya taaki recent complaints dikha sakein
 import { useAdminStats, useAllTickets } from '../../hooks/useAdmin';
 
 const AdminDashboardScreen = ({ navigation }: any) => {
@@ -21,12 +20,11 @@ const AdminDashboardScreen = ({ navigation }: any) => {
 
   // Backend response extraction
   const stats = statsRes?.data || {};
-  
-  // Debugging ke liye: Console mein check karein backend kya keys bhej raha hai
-  console.log("Dashboard Stats from Backend:", stats);
 
-  // Sirf shuru ki 4 complaints nikal rahe hain
-  const recentComplaints = ticketsRes?.data?.tickets?.slice(0, 4) || [];
+  // 🔥 FIX: useInfiniteQuery ka data sahi tarike se extract kiya gaya hai
+  // Saale pages ko flatten karke ek array banaya, phir usme se shuru ke 4 liye
+  const allFetchedTickets = ticketsRes?.pages?.flatMap(page => page?.data?.tickets || []) || [];
+  const recentComplaints = allFetchedTickets.slice(0, 4);
 
   const isLoading = loadingStats || loadingTickets;
   const isRefetching = isRefetchingStats || isRefetchingTickets;
@@ -36,7 +34,6 @@ const AdminDashboardScreen = ({ navigation }: any) => {
     refetchTickets();
   };
 
-  // 🔥 UPDATE: View ko TouchableOpacity banaya aur onPress prop add kiya
   const StatCard = ({ title, count, icon, color, bgColor, onPress }: any) => (
     <TouchableOpacity 
       style={styles.statCard} 
@@ -46,7 +43,6 @@ const AdminDashboardScreen = ({ navigation }: any) => {
       <View style={[styles.iconBox, { backgroundColor: bgColor }]}>
         <MaterialCommunityIcons name={icon} size={28} color={color} />
       </View>
-      {/* Fallback to 0 if data is missing */}
       <Text style={styles.statCount}>{count ?? 0}</Text>
       <Text style={styles.statTitle}>{title}</Text>
     </TouchableOpacity>

@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+// import React, { useState, useContext } from 'react';
 import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Platform, KeyboardAvoidingView, ActivityIndicator, StyleSheet } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { ThemeContext } from '../../context/ThemeContext';
@@ -10,12 +10,13 @@ const EditResidentScreen = ({ route, navigation }: any) => {
   const { theme } = useContext(ThemeContext);
   const styles = getStyles(theme);
 
-  // 🔥 UPDATE: Added 'tower' field initialized with existing data
+  // 🔥 UPDATE: Added 'floor' field initialized with existing data
   const [formData, setFormData] = useState({ 
     name: resident.name, 
     phone: resident.phone, 
     email: resident.email || '', 
-    tower: resident.tower || '', // Naya field
+    tower: resident.tower || '', 
+    floor: resident.floor || '', // 🔥 Naya field add kiya
     flatNo: resident.flatNo || '',
     password: '' 
   });
@@ -45,13 +46,14 @@ const EditResidentScreen = ({ route, navigation }: any) => {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* 🔥 UPDATE: Added 'tower' to the array */}
-          {['name', 'phone', 'email', 'tower', 'flatNo', 'password'].map((field) => (
+          {/* 🔥 UPDATE: Added 'floor' to the array */}
+          {['name', 'phone', 'email', 'tower', 'floor', 'flatNo', 'password'].map((field) => (
             <View key={field} style={styles.inputWrapper}>
               <Text style={styles.fieldLabel}>
                 {field === 'password' ? 'Set New Password (Optional)' : 
                  field === 'flatNo' ? 'Flat Number' : 
-                 field === 'tower' ? 'Tower' : field}
+                 field === 'tower' ? 'Tower' : 
+                 field === 'floor' ? 'Floor' : field}
               </Text>
               
               <View style={styles.inputContainer}>

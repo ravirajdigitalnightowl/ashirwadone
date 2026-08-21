@@ -18,15 +18,32 @@ const AdminVisitorsScreen = ({ navigation }: any) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
-  const { data, isLoading, refetch, isRefetching } = useActiveVisitors(timeRange);
+  // 🔥 FIX: Extracted Infinite Query properties
+  const { 
+    data, 
+    isLoading, 
+    refetch, 
+    isRefetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useActiveVisitors(timeRange);
   
-  const visitors = data?.data?.visitors || [];
+  // 🔥 FIX: Correct way to extract data from useInfiniteQuery
+  const visitors = data?.pages?.flatMap(page => page?.data?.visitors || []) || [];
 
   const filteredVisitors = visitors.filter((v: any) => {
     if (activeFilter === 'All') return true;
     if (activeFilter === 'Inside') return v.status === 'Approved' || v.status === 'Entered';
     return v.status === activeFilter;
   });
+
+  // 🔥 FIX: Infinite Scroll Load More handler
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  };
 
   const getStatusColor = (status: string) => {
     if (status === 'Expected') return '#F59E0B'; 
@@ -53,14 +70,13 @@ const AdminVisitorsScreen = ({ navigation }: any) => {
     setModalVisible(true);
   };
 
-  // 🔥 NAYA: Name truncate karne ka logic
   const formatDisplayNames = (nameStr: string) => {
     if (!nameStr) return 'Unknown';
     const nameArr = nameStr.split(',').map(n => n.trim());
     if (nameArr.length > 2) {
       return `${nameArr.slice(0, 2).join(', ')} & ${nameArr.length - 2} more`;
     }
-    return nameStr;
+    return nameArr;
   };
 
   const renderVisitorCard = ({ item }: any) => (
@@ -82,12 +98,12 @@ const AdminVisitorsScreen = ({ navigation }: any) => {
       </TouchableOpacity>
 
       <View style={styles.visitorInfo}>
-        {/* 🔥 FIX: Apply truncation logic aur 2 lines max allow kiya */}
         <Text style={styles.visitorName} numberOfLines={2}>
           {formatDisplayNames(item.name)}
         </Text>
         <Text style={styles.visitorDetails}>
-          {item.tower ? `${item.tower} - ` : ''}Flat {item.flatNo} • {item.visitorType}
+          {/* 🔥 UPDATE: Floor field bhi add kiya display mein */}
+          {item.tower ? `${item.tower} - ` : ''}{item.floor ? `${item.floor} - ` : ''}Flat {item.flatNo} • {item.visitorType}
         </Text>
         <Text style={styles.timeText}>
           {item.status === 'Exited' ? `Exited: ${formatTime(item.exitTime)}` : 
@@ -96,7 +112,6 @@ const AdminVisitorsScreen = ({ navigation }: any) => {
         </Text>
       </View>
 
-      {/* 🔥 FIX: flexShrink: 0 add kiya taaki badge bahar na push ho */}
       <View style={[styles.statusBadge, { flexShrink: 0, backgroundColor: getStatusColor(item.status) + '15', borderColor: getStatusColor(item.status) }]}>
         <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
           {item.status === 'Approved' ? 'Inside' : item.status}
@@ -198,6 +213,14 @@ const AdminVisitorsScreen = ({ navigation }: any) => {
           data={filteredVisitors}
           keyExtractor={(item) => item._id}
           renderItem={renderVisitorCard}
+          // 🔥 FIX: Infinite Scroll Props
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <ActivityIndicator color={theme.primary} style={{ marginVertical: 20 }} />
+            ) : null
+          }
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={theme.primary} />}
@@ -236,7 +259,6 @@ const AdminVisitorsScreen = ({ navigation }: any) => {
                     )}
                   </TouchableOpacity>
                   <View style={{ flex: 1, marginLeft: 16 }}>
-                    {/* 🔥 Modal mein pura naam dikhega */}
                     <Text style={styles.modalName}>{selectedVisitor.name}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedVisitor.status) + '15', borderColor: getStatusColor(selectedVisitor.status), alignSelf: 'flex-start', marginTop: 4 }]}>
                       <Text style={[styles.statusText, { color: getStatusColor(selectedVisitor.status) }]}>{selectedVisitor.status}</Text>
@@ -254,7 +276,8 @@ const AdminVisitorsScreen = ({ navigation }: any) => {
 
                   <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Destination</Text>
-                    <Text style={styles.detailValue}>{selectedVisitor.tower ? `${selectedVisitor.tower}-` : ''}{selectedVisitor.flatNo}</Text>
+                    {/* 🔥 UPDATE: Floor field bhi add kiya destination mein */}
+                    <Text style={styles.detailValue}>{selectedVisitor.tower ? `${selectedVisitor.tower} - ` : ''}{selectedVisitor.floor ? `${selectedVisitor.floor} - ` : ''}Flat {selectedVisitor.flatNo}</Text>
                   </View>
                   <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Visitor Type</Text>
@@ -334,7 +357,7 @@ const getStyles = (theme: ThemeColors) => StyleSheet.create({
   thumbnailContainer: { width: 50, height: 50, borderRadius: 25, backgroundColor: theme.primaryLight, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginRight: 16 },
   thumbnail: { width: '100%', height: '100%' },
   
-  visitorInfo: { flex: 1, marginRight: 12 }, // marginRight add kiya taaki badge se chipke nahi
+  visitorInfo: { flex: 1, marginRight: 12 },
   visitorName: { fontSize: 16, fontWeight: '700', color: theme.textMain, marginBottom: 4 },
   visitorDetails: { fontSize: 13, color: theme.textMain, fontWeight: '500' },
   timeText: { fontSize: 11, color: theme.textMuted, marginTop: 6 },
