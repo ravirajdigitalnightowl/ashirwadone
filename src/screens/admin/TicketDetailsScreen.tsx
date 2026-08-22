@@ -1,4 +1,3 @@
-
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, TextInput, StyleSheet, Platform, Alert, Animated, KeyboardAvoidingView, ActivityIndicator, Image, Modal } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -28,7 +27,9 @@ const TicketDetailsScreen: React.FC<RouteParams> = ({ route, navigation }) => {
   const { data: workersRes } = useWorkers(); 
   
   const activeDepartments = deptData?.data?.departments?.filter((d: any) => d.isActive) || [];
-  const availableWorkers = workersRes?.data?.workers || [];
+  
+  // 🔥 FIX: useInfiniteQuery se workers ka data flatten karke nikala hai
+  const availableWorkers = workersRes?.pages?.flatMap(page => page?.data?.workers || []) || [];
 
   // Mutations
   const { mutate: assignTicket, isPending: isAssigning } = useAssignTicket(() => navigation.goBack());

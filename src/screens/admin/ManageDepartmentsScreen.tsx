@@ -1,4 +1,3 @@
-
 import React, { useState, useContext } from 'react';
 import { View, Text, SafeAreaView, FlatList, TouchableOpacity, TextInput, Switch, Alert, ActivityIndicator, Modal, StyleSheet, Platform } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -88,10 +87,7 @@ const ManageDepartmentsScreen = ({ navigation }: any) => {
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContainer}
           renderItem={({ item }) => (
-            // 🔥 FIXED 1: Pure card se opacity hata di. Inactive hone par sirf background change hoga.
             <View style={[styles.deptCard, !item.isActive && { backgroundColor: theme.background }]}>
-              
-              {/* 🔥 FIXED 2: Opacity sirf left side (text area) par apply ki hai */}
               <View style={[{ flex: 1, marginRight: 10 }, !item.isActive && { opacity: 0.5 }]}>
                 <Text style={[styles.deptName, !item.isActive && { textDecorationLine: 'line-through', color: theme.textMuted }]}>{item.name}</Text>
                 <Text style={styles.deptStatus}>{item.isActive ? 'Active' : 'Hidden'}</Text>
@@ -105,7 +101,6 @@ const ManageDepartmentsScreen = ({ navigation }: any) => {
                   <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.primary} />
                 </TouchableOpacity>
 
-                {/* 🔥 FIXED 3: Toggle colors exact ManageStaffScreen wale daal diye hain */}
                 <Switch 
                   value={item.isActive} 
                   onValueChange={() => handleToggle(item._id, item.isActive)} 
