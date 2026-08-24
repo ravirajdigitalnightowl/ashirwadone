@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+// import React, { useContext, useState } from 'react';
 import { View, Text, SafeAreaView, FlatList, TouchableOpacity, StyleSheet, Platform, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { ThemeContext } from '../../context/ThemeContext';
@@ -11,36 +11,60 @@ const WorkerHistoryScreen = ({ navigation }: any) => {
   const { theme } = useContext(ThemeContext);
   const styles = getStyles(theme);
 
-  // 🔥 UPDATE: Default dateFilter 'Today' set kiya aur isMonthView state add ki
   const [dateFilter, setDateFilter] = useState('Today');
   const [isMonthView, setIsMonthView] = useState(false);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
-  // 🔥 UPDATE: Pagination hata diya gaya hai
-  const { data, isLoading, refetch, isRefetching } = useWorkerTasks('Resolved', dateFilter);
+  // 🔥 FIX: Extracted Infinite Query properties
+  const { 
+    data, 
+    isLoading, 
+    refetch, 
+    isRefetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useWorkerTasks(
+    'Resolved', 
+    isMonthView ? undefined : dateFilter, 
+    isMonthView ? dateFilter : undefined, 
+    selectedYear
+  );
+  
+  // 🔥 FIX: Correct way to extract data from useInfiniteQuery
+  const allTasks = data?.pages?.flatMap(page => page?.data?.tasks || []) || [];
   
   // Sirf resolved tasks filter karein
-  const historyTasks = (data?.data?.tasks || []).filter((t: any) => t.status === 'Resolved');
+  const historyTasks = allTasks.filter((t: any) => t.status === 'Resolved');
 
-  const renderItem = ({ item }: any) => (
-    <TouchableOpacity 
-      style={styles.historyCard}
-      activeOpacity={0.7}
-      onPress={() => navigation.navigate('WorkerTaskDetails', { ticketId: item._id })}
-    >
-      <View style={styles.cardLeft}>
-        <View style={styles.iconBox}>
-          <MaterialCommunityIcons name="check-circle" size={24} color={theme.status.resolved} />
+  const renderItem = ({ item }: any) => {
+    // 🔥 UPDATE: Floor ko bhi combine karke address banaya gaya hai
+    const flatNo = item.createdBy?.flatNo || 'N/A';
+    const tower = item.createdBy?.tower ? `${item.createdBy.tower} - ` : '';
+    const floor = item.createdBy?.floor ? `${item.createdBy.floor} - ` : '';
+    const displayAddress = `${tower}${floor}Flat ${flatNo}`;
+
+    return (
+      <TouchableOpacity 
+        style={styles.historyCard}
+        activeOpacity={0.7}
+        onPress={() => navigation.navigate('WorkerTaskDetails', { ticketId: item._id })}
+      >
+        <View style={styles.cardLeft}>
+          <View style={styles.iconBox}>
+            <MaterialCommunityIcons name="check-circle" size={24} color={theme.status.resolved} />
+          </View>
+          <View>
+            <Text style={styles.title}>{item.title}</Text>
+            <Text style={styles.subtitle}>#{item._id.slice(-6).toUpperCase()} • {displayAddress}</Text>
+          </View>
         </View>
-        <View>
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.subtitle}>#{item._id.slice(-6).toUpperCase()} • Flat {item.createdBy?.flatNo || 'N/A'}</Text>
-        </View>
-      </View>
-      <Text style={styles.dateText}>
-        {new Date(item.updatedAt).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-      </Text>
-    </TouchableOpacity>
-  );
+        <Text style={styles.dateText}>
+          {new Date(item.updatedAt).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   // Arrays for filters
   const standardDateFilters = ['Today', 'This Week', 'This Month', 'By Month'];
@@ -53,13 +77,12 @@ const WorkerHistoryScreen = ({ navigation }: any) => {
         <Text style={styles.headerSub}>Your past performance</Text>
       </View>
 
-      {/* 🔥 UPDATE: Date Filter (Inline Expand Logic) */}
+      {/* Date Filter (Inline Expand Logic) */}
       <View style={{ paddingHorizontal: 20, paddingTop: 15, paddingBottom: 5, backgroundColor: theme.surface }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center' }}>
           
           {isMonthView ? (
             <>
-              {/* Back Button to exit Month View */}
               <TouchableOpacity 
                 style={styles.backIconBtn} 
                 onPress={() => setIsMonthView(false)}
@@ -67,7 +90,15 @@ const WorkerHistoryScreen = ({ navigation }: any) => {
                 <MaterialCommunityIcons name="arrow-left" size={18} color={theme.textMain} />
               </TouchableOpacity>
 
-              {/* Months List */}
+              {/* Year Selector */}
+              <TouchableOpacity onPress={() => setSelectedYear(String(Number(selectedYear) - 1))} style={{ marginRight: 10 }}>
+                <MaterialCommunityIcons name="chevron-left" size={20} color={theme.textMain} />
+              </TouchableOpacity>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: theme.primary, marginRight: 10 }}>{selectedYear}</Text>
+              <TouchableOpacity onPress={() => setSelectedYear(String(Number(selectedYear) + 1))} style={{ marginRight: 10 }}>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textMain} />
+              </TouchableOpacity>
+
               {monthFilters.map((month) => (
                 <TouchableOpacity 
                   key={month}
@@ -83,7 +114,6 @@ const WorkerHistoryScreen = ({ navigation }: any) => {
             </>
           ) : (
             <>
-              {/* Standard Filters List */}
               {standardDateFilters.map((range) => (
                 <TouchableOpacity 
                   key={range}
@@ -95,6 +125,7 @@ const WorkerHistoryScreen = ({ navigation }: any) => {
                   onPress={() => { 
                     if (range === 'By Month') {
                       setIsMonthView(true);
+                      setDateFilter(monthFilters[new Date().getMonth()]);
                     } else {
                       setDateFilter(range);
                     }
@@ -125,6 +156,18 @@ const WorkerHistoryScreen = ({ navigation }: any) => {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.primary} />}
           ListEmptyComponent={<Text style={{ textAlign: 'center', color: theme.textMuted, marginTop: 40 }}>No completed jobs yet.</Text>}
+          // 🔥 FIX: Infinite Scroll Props
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              fetchNextPage();
+            }
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <ActivityIndicator color={theme.primary} style={{ marginVertical: 20 }} />
+            ) : null
+          }
         />
       )}
     </SafeAreaView>
@@ -144,11 +187,9 @@ const getStyles = (theme: ThemeColors) => StyleSheet.create({
   subtitle: { fontSize: 13, color: theme.textMuted, marginTop: 2 },
   dateText: { fontSize: 12, fontWeight: '600', color: theme.textMuted },
   
-  // Naye filter chip styles
   timeChip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, marginRight: 10, backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.border },
   timeChipText: { fontSize: 12, fontWeight: '700', color: theme.textMuted },
   
-  // Back Icon
   backIconBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center', marginRight: 10, borderWidth: 1, borderColor: theme.border },
 });
 

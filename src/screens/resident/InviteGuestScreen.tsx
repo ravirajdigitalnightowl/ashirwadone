@@ -1,4 +1,4 @@
-// // src/screens/resident/InviteGuestScreen.tsx
+// // // src/screens/resident/InviteGuestScreen.tsx
 import React, { useState, useContext } from 'react';
 import { View, Text, SafeAreaView, TouchableOpacity, TextInput, StyleSheet, ScrollView, Modal, Platform, ActivityIndicator, Alert } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -10,10 +10,10 @@ const InviteGuestScreen = ({ navigation }: any) => {
   const { theme } = useContext(ThemeContext);
   const styles = getStyles(theme);
 
-  // 🔥 NAYA: 'name' hataya, 'purpose' add kiya
+  // State for form data
   const [formData, setFormData] = useState({ visitorType: 'Guest', purpose: '', phone: '', vehicleNo: '' });
   
-  // 🔥 NAYE STATES: Multiple Names (Chips) handle karne ke liye
+  // States for Multiple Names (Chips)
   const [namesList, setNamesList] = useState<string[]>([]);
   const [currentName, setCurrentName] = useState('');
 
@@ -23,7 +23,7 @@ const InviteGuestScreen = ({ navigation }: any) => {
     setGeneratedPasscode(data.data.passcode); 
   });
 
-  // 🔥 Name Add Karna
+  // Name Add
   const handleAddName = () => {
     if (currentName.trim() !== '') {
       setNamesList([...namesList, currentName.trim()]);
@@ -31,12 +31,12 @@ const InviteGuestScreen = ({ navigation }: any) => {
     }
   };
 
-  // 🔥 Name Remove Karna
+  // Name Remove
   const handleRemoveName = (index: number) => {
     setNamesList(namesList.filter((_, i) => i !== index));
   };
 
-  // 🔥 Name Edit Karna
+  // Name Edit
   const handleEditName = (index: number) => {
     setCurrentName(namesList[index]);
     setNamesList(namesList.filter((_, i) => i !== index));
@@ -55,7 +55,8 @@ const InviteGuestScreen = ({ navigation }: any) => {
       return;
     }
 
-    // Backend payload mein comma-separated name aur purpose bhej rahe hain
+    // Backend payload: comma-separated name, purpose, etc.
+    // societyId, tower, floor, flatNo backend automatically req.user se lega
     inviteVisitor({
       ...formData,
       name: nameString
@@ -71,7 +72,7 @@ const InviteGuestScreen = ({ navigation }: any) => {
         <Text style={styles.headerTitle}>Pre-Approve Entry</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.infoText}>
           Generate a 6-digit passcode for your guest. They can show this at the main gate for instant entry without any calls.
         </Text>
@@ -89,7 +90,7 @@ const InviteGuestScreen = ({ navigation }: any) => {
           ))}
         </View>
 
-        {/* 🔥 NAYA UI: Multiple Names Tags / Chips */}
+        {/* Multiple Names Tags / Chips */}
         <Text style={styles.sectionLabel}>Guest Names *</Text>
         
         {namesList.length > 0 && (
@@ -151,7 +152,7 @@ const InviteGuestScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
 
-      {/* 🔥 SUCCESS MODAL SHOWING PASSCODE */}
+      {/* SUCCESS MODAL SHOWING PASSCODE */}
       <Modal visible={!!generatedPasscode} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -160,7 +161,6 @@ const InviteGuestScreen = ({ navigation }: any) => {
             </View>
             <Text style={styles.modalTitle}>Invite Created!</Text>
             
-            {/* Conditional Subtitle for single/multiple guests */}
             <Text style={styles.modalSub}>
               Share this code with {namesList.length > 1 ? 'your guests' : (namesList[0] || currentName)}
             </Text>
@@ -202,7 +202,7 @@ const getStyles = (theme: ThemeColors) => StyleSheet.create({
   typeChip: { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, marginRight: 10, marginBottom: 10 },
   typeChipText: { fontSize: 14, fontWeight: '600', color: theme.textMuted },
   
-  // 🔥 NAMES CHIP STYLES
+  // NAMES CHIP STYLES
   namesWrapper: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
   nameChip: { 
     flexDirection: 'row', 

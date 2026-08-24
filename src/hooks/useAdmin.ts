@@ -199,6 +199,11 @@ export const useCreateDepartment = (onSuccessCallback?: () => void) => {
       queryClient.invalidateQueries({ queryKey: ['adminDepartments'] });
       if (onSuccessCallback) onSuccessCallback();
     },
+    // 🔥 FIX: Error handler add kiya gaya hai
+    onError: (error: any) => {
+      console.log("Create Dept Error:", error.response?.data);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to create department');
+    }
   });
 };
 
@@ -209,5 +214,10 @@ export const useUpdateDepartment = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminDepartments'] });
     },
+    // 🔥 FIX: Error handler add kiya gaya hai
+    onError: (error: any) => {
+      console.log("Update Dept Error:", error.response?.data);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to update department');
+    }
   });
 };

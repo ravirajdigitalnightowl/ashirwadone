@@ -12,10 +12,11 @@ const AddWorkerScreen = ({ navigation }: any) => {
   const { theme } = useContext(ThemeContext);
   const styles = getStyles(theme);
 
-  // 🔥 UPDATE: Added new SaaS fields to state
+  // 🔥 UPDATE: Added new SaaS fields to state (including designation)
   const [formData, setFormData] = useState({ 
     name: '', phone: '', email: '', password: '', 
-    aadharNo: '', shiftStart: '09:00 AM', shiftEnd: '06:00 PM' 
+    aadharNo: '', designation: '', // 🔥 NAYA: Designation
+    shiftStart: '09:00 AM', shiftEnd: '06:00 PM' 
   });
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -127,6 +128,19 @@ const AddWorkerScreen = ({ navigation }: any) => {
                 maxLength={12}
                 value={formData.aadharNo}
                 onChangeText={(text) => setFormData({ ...formData, aadharNo: text })}
+                editable={!isPending}
+              />
+            </View>
+
+            {/* 🔥 NAYA: Designation Field */}
+            <View style={styles.inputContainer}>
+              <MaterialCommunityIcons name="badge-account-horizontal-outline" size={20} color={theme.iconMuted} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Designation (e.g. Plumber, Guard)"
+                placeholderTextColor={theme.textMuted}
+                value={formData.designation}
+                onChangeText={(text) => setFormData({ ...formData, designation: text })}
                 editable={!isPending}
               />
             </View>

@@ -1,4 +1,3 @@
-
 import React, { useContext } from 'react';
 import { View, Text, SafeAreaView, TouchableOpacity, ScrollView, Switch, Alert } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -37,22 +36,44 @@ const ProfileScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         <Text style={styles.headerTitle}>My Profile</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             <Text style={styles.avatarText}>{getInitials(userData?.name || '')}</Text>
           </View>
           <Text style={styles.userName}>{userData?.name || 'Resident'}</Text>
+          
+          {/* 🔥 NAYA: Dynamic Society Name Display */}
+          {userData?.societyId?.name && (
+            <Text style={styles.societyName}>{userData.societyId.name}</Text>
+          )}
+
+          {/* 🔥 UPDATE: Floor field bhi add kiya display mein */}
           <Text style={styles.flatDetails}>
             {userData?.flatNo 
-              ? `${userData?.tower ? `Tower ${userData.tower}, ` : ''}Flat ${userData.flatNo}` 
+              ? `${userData?.tower ? `Tower ${userData.tower}, ` : ''}${userData?.floor ? `Floor ${userData.floor}, ` : ''}Flat ${userData.flatNo}` 
               : 'Resident Member'}
           </Text>
         </View>
 
         <View style={styles.menuContainer}>
           
-          {/* 🔥 NAYA BUTTON: Troubleshooting Notifications ke liye */}
+          {/* 🔥 NAYA BUTTON: Notice Board / Digital Announcements ke liye */}
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            activeOpacity={0.7} 
+            onPress={() => navigation.navigate('NoticeBoardScreen')}
+          >
+            <View style={styles.menuItemLeft}>
+              <View style={[styles.menuIcon, { backgroundColor: theme.primary + '15' }]}>
+                <MaterialCommunityIcons name="bullhorn-outline" size={22} color={theme.primary} />
+              </View>
+              <Text style={styles.menuText}>Notice Board</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color={theme.iconMuted} />
+          </TouchableOpacity>
+
+          {/* Troubleshooting Notifications */}
           <TouchableOpacity 
             style={styles.menuItem} 
             activeOpacity={0.7} 

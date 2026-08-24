@@ -34,7 +34,10 @@ const WorkerCard = React.memo(({ item, theme, styles, navigation, handleToggle }
         </View>
         <View style={styles.workerInfo}>
           <Text style={[styles.workerName, !localIsActive && styles.inactiveText]}>{item.name}</Text>
-          <Text style={styles.workerDept}>{item.department || 'Staff'} • {item.phone}</Text>
+          {/* 🔥 UPDATE: Designation bhi yahan dikhega */}
+          <Text style={styles.workerDept}>
+            {item.designation ? `${item.designation} • ` : ''}{item.department || 'Staff'} • {item.phone}
+          </Text>
           
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
             <Text style={[styles.statusText, { color: localIsActive ? theme.status.resolved : theme.status.pending, marginRight: 8 }]}>

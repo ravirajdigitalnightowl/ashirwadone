@@ -99,4 +99,43 @@ export const adminService = {
     const response = await api.patch(`/admin/departments/${id}`, data);
     return response.data;
   },
+
+  // ==========================================
+  // 🚀 NAYE SAAS FEATURES (Society Branding & Notice Board)
+  // ==========================================
+
+  // --- SOCIETY BRANDING ---
+  getSocietyProfile: async () => {
+    const response = await api.get('/admin/society/brand');
+    return response.data;
+  },
+  
+  updateSocietyBrand: async (formData: FormData) => {
+    const response = await api.patch('/admin/society/brand', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+
+  // --- POSTS / NOTICE BOARD ---
+  getAllPosts: async ({ pageParam = 1, limit = 10, type = 'All', month, year }: any) => {
+    let url = `/admin/posts?page=${pageParam}&limit=${limit}`;
+    if (type && type !== 'All') url += `&type=${type}`;
+    if (month && year) url += `&month=${month}&year=${year}`;
+    
+    const response = await api.get(url);
+    return response.data;
+  },
+  
+  createPost: async (formData: FormData) => {
+    const response = await api.post('/admin/posts', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+  
+  deletePost: async (id: string) => {
+    const response = await api.delete(`/admin/posts/${id}`);
+    return response.data;
+  }
 };

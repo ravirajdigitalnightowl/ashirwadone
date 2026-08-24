@@ -13,14 +13,15 @@ const EditWorkerScreen = ({ route, navigation }: any) => {
   const { theme } = useContext(ThemeContext);
   const styles = getStyles(theme);
 
-  // 🔥 UPDATE: Added new fields to state
+  // 🔥 UPDATE: Added designation to state
   const [formData, setFormData] = useState({ 
     name: worker.name, 
     phone: worker.phone, 
     email: worker.email || '', 
-    aadharNo: worker.aadharNo || '',       // 🔥 NAYA
-    shiftStart: worker.shiftStart || '09:00 AM', // 🔥 NAYA
-    shiftEnd: worker.shiftEnd || '06:00 PM',     // 🔥 NAYA
+    aadharNo: worker.aadharNo || '',       
+    designation: worker.designation || '', // 🔥 NAYA: Designation
+    shiftStart: worker.shiftStart || '09:00 AM', 
+    shiftEnd: worker.shiftEnd || '06:00 PM',     
     password: '' 
   });
   const [selectedDept, setSelectedDept] = useState<string>(worker.department || '');
@@ -97,18 +98,19 @@ const EditWorkerScreen = ({ route, navigation }: any) => {
             )}
           </TouchableOpacity>
 
-          {/* 🔥 UPDATE: Personal Details Fields */}
+          {/* 🔥 UPDATE: Personal Details Fields (Added 'designation') */}
           <Text style={styles.sectionTitle}>Personal Details</Text>
-          {['name', 'phone', 'aadharNo', 'email', 'password'].map((field) => (
+          {['name', 'phone', 'aadharNo', 'designation', 'email', 'password'].map((field) => (
             <View key={field} style={styles.inputWrapper}>
               <Text style={styles.fieldLabel}>
                 {field === 'password' ? 'Set New Password (Optional)' : 
-                 field === 'aadharNo' ? 'Aadhar Number' : field}
+                 field === 'aadharNo' ? 'Aadhar Number' : 
+                 field === 'designation' ? 'Designation (e.g. Plumber)' : field}
               </Text>
               <View style={styles.inputContainer}>
                 <TextInput
                   style={styles.input}
-                  placeholder={`Update ${field === 'aadharNo' ? 'Aadhar Number' : field}`}
+                  placeholder={`Update ${field === 'aadharNo' ? 'Aadhar Number' : field === 'designation' ? 'Designation' : field}`}
                   placeholderTextColor={theme.textMuted}
                   value={(formData as any)[field]}
                   onChangeText={(text) => setFormData({ ...formData, [field]: text })}

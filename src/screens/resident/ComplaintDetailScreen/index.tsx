@@ -17,9 +17,10 @@ const ComplaintDetailScreen: React.FC<{ navigation: any, route: any }> = ({ navi
   // Media Modal State
   const [mediaModalVisible, setMediaModalVisible] = useState(false);
 
-  // React Query Cache se ticket dhundna
+  // 🔥 FIX: React Query Cache (Infinite Query) se tickets ko flatten karke nikala hai
   const { data } = useMyTickets();
-  const ticketData = data?.data?.tickets?.find((t: any) => t._id === ticketId);
+  const allTickets = data?.pages?.flatMap(page => page?.data?.tickets || []) || [];
+  const ticketData = allTickets.find((t: any) => t._id === ticketId);
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();

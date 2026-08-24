@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+// import React, { useState, useContext, useEffect } from 'react';
 import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, TextInput, StyleSheet, Platform, KeyboardAvoidingView, ActivityIndicator, Alert, Image } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { launchCamera, ImageLibraryOptions } from 'react-native-image-picker'; 
@@ -11,10 +11,10 @@ const AddVisitorScreen = ({ navigation }: any) => {
   const { theme } = useContext(ThemeContext);
   const styles = getStyles(theme);
 
-  // 🔥 NAYA: 'name' ko formData se nikal diya, 'purpose' add kar diya
-  const [formData, setFormData] = useState({ visitorType: 'Delivery', purpose: '', phone: '', vehicleNo: '', tower: '', flatNo: '' });
+  // 🔥 UPDATE: 'floor' add kiya formData mein
+  const [formData, setFormData] = useState({ visitorType: 'Delivery', purpose: '', phone: '', vehicleNo: '', tower: '', floor: '', flatNo: '' });
   
-  // 🔥 NAYE STATES: Multiple Names (Chips) handle karne ke liye
+  // Multiple Names (Chips) handle karne ke liye
   const [namesList, setNamesList] = useState<string[]>([]);
   const [currentName, setCurrentName] = useState('');
 
@@ -28,7 +28,7 @@ const AddVisitorScreen = ({ navigation }: any) => {
   // Flat suggestions logic
   useEffect(() => {
     const fetchSuggestions = async () => {
-      if (!formData.tower && !formData.flatNo) {
+      if (!formData.tower && !formData.flatNo && !formData.floor) {
         setSuggestions([]);
         setShowSuggestions(false);
         return;
@@ -36,7 +36,8 @@ const AddVisitorScreen = ({ navigation }: any) => {
       setIsSearching(true);
       try {
         const res = await api.get(`/visitors/society-flats`, {
-          params: { tower: formData.tower, flatNo: formData.flatNo }
+          // 🔥 UPDATE: floor bhi params mein bhej rahe hain
+          params: { tower: formData.tower, floor: formData.floor, flatNo: formData.flatNo }
         });
         setSuggestions(res.data.data.residents);
         setShowSuggestions(true);
@@ -52,12 +53,13 @@ const AddVisitorScreen = ({ navigation }: any) => {
     }, 500);
 
     return () => clearTimeout(delay);
-  }, [formData.tower, formData.flatNo]);
+  }, [formData.tower, formData.floor, formData.flatNo]);
 
   const handleSelectResident = (resident: any) => {
     setFormData({
       ...formData,
       tower: resident.tower || '',
+      floor: resident.floor || '', // 🔥 UPDATE
       flatNo: resident.flatNo || ''
     });
     setShowSuggestions(false);
@@ -77,33 +79,32 @@ const AddVisitorScreen = ({ navigation }: any) => {
     });
   };
 
-  // 🔥 NAYA: Name add karna (Chip)
+  // Name add karna (Chip)
   const handleAddName = () => {
     if (currentName.trim() !== '') {
       setNamesList([...namesList, currentName.trim()]);
-      setCurrentName(''); // Input clear kar do
+      setCurrentName(''); 
     }
   };
 
-  // 🔥 NAYA: Name remove karna
+  // Name remove karna
   const handleRemoveName = (index: number) => {
     setNamesList(namesList.filter((_, i) => i !== index));
   };
 
-  // 🔥 NAYA: Name edit karna (Tap karne par wapas input mein layega)
+  // Name edit karna
   const handleEditName = (index: number) => {
     setCurrentName(namesList[index]);
     setNamesList(namesList.filter((_, i) => i !== index));
   };
 
   const handleSubmit = () => {
-    // Agar user ne input me kuch likha hai par 'Add' nahi kiya, toh usko bhi consider karenge
     let finalNames = [...namesList];
     if (currentName.trim() !== '') {
       finalNames.push(currentName.trim());
     }
 
-    const nameString = finalNames.join(', '); // Backend ke liye comma se jod diya
+    const nameString = finalNames.join(', '); 
 
     if (!nameString || !formData.flatNo || !photo) {
       Alert.alert('Incomplete', 'At least one Name, Flat Number, and Visitor Photo are mandatory.');
@@ -111,12 +112,13 @@ const AddVisitorScreen = ({ navigation }: any) => {
     }
 
     const payload = new FormData();
-    payload.append('name', nameString); // 🔥 Bheja gaya comma-separated string
+    payload.append('name', nameString); 
     payload.append('visitorType', formData.visitorType);
-    payload.append('purpose', formData.purpose); // 🔥 NAYA: Purpose bej rahe hain
+    payload.append('purpose', formData.purpose); 
     payload.append('phone', formData.phone);
     payload.append('vehicleNo', formData.vehicleNo);
     payload.append('tower', formData.tower);
+    payload.append('floor', formData.floor); // 🔥 NAYA: Floor bej rahe hain
     payload.append('flatNo', formData.flatNo);
     
     payload.append('photo', {
@@ -165,18 +167,16 @@ const AddVisitorScreen = ({ navigation }: any) => {
             ))}
           </View>
 
-          {/* 🔥 NAYA UI: Multiple Names Tags / Chips */}
+          {/* Multiple Names Tags / Chips */}
           <Text style={styles.sectionLabel}>Visitor Names *</Text>
           
           {namesList.length > 0 && (
             <View style={styles.namesWrapper}>
               {namesList.map((name, index) => (
                 <View key={index} style={styles.nameChip}>
-                  {/* Name par tap karne se Edit mode (wapas input me aayega) */}
                   <TouchableOpacity onPress={() => handleEditName(index)} activeOpacity={0.6}>
                     <Text style={styles.nameChipText}>{name}</Text>
                   </TouchableOpacity>
-                  {/* Cross par tap karne se Delete hoga */}
                   <TouchableOpacity onPress={() => handleRemoveName(index)} style={styles.removeIcon}>
                     <MaterialCommunityIcons name="close" size={16} color={theme.primary} />
                   </TouchableOpacity>
@@ -192,7 +192,7 @@ const AddVisitorScreen = ({ navigation }: any) => {
               placeholderTextColor={theme.textMuted}
               value={currentName}
               onChangeText={setCurrentName}
-              onSubmitEditing={handleAddName} // Keyboard enter par add
+              onSubmitEditing={handleAddName} 
               returnKeyType="done"
             />
             <TouchableOpacity style={styles.addNameBtn} onPress={handleAddName}>
@@ -219,11 +219,16 @@ const AddVisitorScreen = ({ navigation }: any) => {
 
           <Text style={styles.sectionLabel}>Destination Details</Text>
           <View style={{ zIndex: 10 }}>
-            {['tower', 'flatNo'].map((field) => (
+            {/* 🔥 UPDATE: 'floor' field add kiya array mein */}
+            {['tower', 'floor', 'flatNo'].map((field) => (
               <View key={field} style={styles.inputContainer}>
                 <TextInput
                   style={styles.input}
-                  placeholder={field === 'tower' ? 'Tower (e.g. A)' : 'Flat Number (e.g. 101) *'}
+                  placeholder={
+                    field === 'tower' ? 'Tower (e.g. A)' : 
+                    field === 'floor' ? 'Floor (e.g. Ground, 1st)' : 
+                    'Flat Number (e.g. 101) *'
+                  }
                   placeholderTextColor={theme.textMuted}
                   value={(formData as any)[field]}
                   onChangeText={(text) => setFormData({ ...formData, [field]: text })}
@@ -232,7 +237,7 @@ const AddVisitorScreen = ({ navigation }: any) => {
               </View>
             ))}
 
-            {showSuggestions && (formData.tower || formData.flatNo) ? (
+            {showSuggestions && (formData.tower || formData.flatNo || formData.floor) ? (
               <View style={styles.suggestionsContainer}>
                 {isSearching ? (
                   <ActivityIndicator size="small" color={theme.primary} style={{ padding: 16 }} />
@@ -247,7 +252,8 @@ const AddVisitorScreen = ({ navigation }: any) => {
                       <MaterialCommunityIcons name="home-account" size={24} color={theme.primary} style={{ marginRight: 12 }} />
                       <View>
                         <Text style={{ color: theme.textMain, fontWeight: 'bold', fontSize: 15 }}>
-                          Tower {resident.tower} - Flat {resident.flatNo}
+                          {/* 🔥 UPDATE: Floor bhi display mein dikhega */}
+                          {resident.tower ? `Tower ${resident.tower}, ` : ''}{resident.floor ? `Floor ${resident.floor}, ` : ''}Flat {resident.flatNo}
                         </Text>
                         <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 2 }}>
                           {resident.name}
@@ -295,12 +301,12 @@ const getStyles = (theme: ThemeColors) => StyleSheet.create({
   inputContainer: { backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border, marginBottom: 16, paddingHorizontal: 16 },
   input: { paddingVertical: 14, fontSize: 16, color: theme.textMain },
   
-  // 🔥 NAMES CHIP STYLES
+  // NAMES CHIP STYLES
   namesWrapper: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 },
   nameChip: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    backgroundColor: theme.primaryLight || '#EEF2FF', // Fallback color
+    backgroundColor: theme.primaryLight || '#EEF2FF', 
     borderWidth: 1, 
     borderColor: theme.primary,
     borderRadius: 20, 

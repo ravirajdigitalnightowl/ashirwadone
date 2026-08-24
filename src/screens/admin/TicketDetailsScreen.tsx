@@ -105,7 +105,6 @@ const TicketDetailsScreen: React.FC<RouteParams> = ({ route, navigation }) => {
             <View style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.ticketId}>#{ticketData._id.slice(-6).toUpperCase()}</Text>
-                {/* 🔥 UPDATE: Date ke sath time display kiya gaya hai */}
                 <Text style={styles.dateText}>
                   {new Date(ticketData.createdAt).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </Text>
@@ -167,6 +166,18 @@ const TicketDetailsScreen: React.FC<RouteParams> = ({ route, navigation }) => {
                     <Text style={[styles.workerChipText, assignedWorker === worker._id && { color: '#FFF' }]}>
                       {worker.name}
                     </Text>
+                    
+                    {/* 🔥 NAYA: Designation yahan dikhega */}
+                    {worker.designation && (
+                      <Text style={{ 
+                        fontSize: 10, 
+                        fontWeight: '600', 
+                        color: assignedWorker === worker._id ? '#FFFFFF90' : theme.textMuted, 
+                        marginTop: 2 
+                      }}>
+                        {worker.designation}
+                      </Text>
+                    )}
                     
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: worker.isOnDuty ? theme.status.resolved : theme.textMuted, marginRight: 4 }} />

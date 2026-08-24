@@ -1,6 +1,5 @@
-
 import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, SafeAreaView, TouchableOpacity, Switch, StyleSheet, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, SafeAreaView, TouchableOpacity, Switch, StyleSheet, Platform, ScrollView, Alert, Image } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { ThemeContext } from '../../context/ThemeContext';
 import { ThemeColors } from '../../theme/colors';
@@ -15,7 +14,7 @@ const WorkerProfileScreen = ({ navigation }: any) => {
   const { logout, userData } = useContext(AuthContext);
   const { mutate: toggleDuty } = useToggleDuty();
   
-  const [isOnDuty, setIsOnDuty] = useState(true);
+  const [isOnDuty, setIsOnDuty] = useState(false); // Default false, will update from userData
 
   useEffect(() => {
     if (userData && 'isOnDuty' in userData) {
@@ -25,7 +24,7 @@ const WorkerProfileScreen = ({ navigation }: any) => {
 
   const handleToggleDuty = (newValue: boolean) => {
     setIsOnDuty(newValue);
-    toggleDuty();
+    toggleDuty(); // Backend attendance track karega
   };
 
   const handleLogout = () => {
@@ -46,15 +45,38 @@ const WorkerProfileScreen = ({ navigation }: any) => {
         <Text style={styles.headerTitle}>Staff Profile</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={styles.profileSection}>
+          {/* 🔥 NAYA: Profile Photo Display (agar backend se photoUrl aaya hai) */}
           <View style={styles.avatarContainer}>
-            <MaterialCommunityIcons name="account-hard-hat" size={50} color={theme.surface} />
+            {userData?.photoUrl ? (
+              <Image source={{ uri: userData.photoUrl }} style={styles.avatarImage} />
+            ) : (
+              <MaterialCommunityIcons name="account-hard-hat" size={50} color={theme.surface} />
+            )}
           </View>
+          
           <Text style={styles.userName}>{userData?.name || 'Staff Worker'}</Text>
+          
+          {/* 🔥 NAYA: Dynamic Society Name Display */}
+          {userData?.societyId?.name && (
+            <Text style={styles.societyNameText}>{userData.societyId.name}</Text>
+          )}
+
           <View style={styles.deptBadge}>
-            <Text style={styles.deptText}>{userData?.department || 'Operations'} Department</Text>
+            {/* 🔥 UPDATE: Designation bhi yahan dikhega */}
+            <Text style={styles.deptText}>
+              {userData?.designation ? `${userData.designation} • ` : ''}{userData?.department || 'Operations'} Department
+            </Text>
           </View>
+          
+          {/* 🔥 NAYA: Shift Timings Display */}
+          {(userData?.shiftStart || userData?.shiftEnd) && (
+            <View style={styles.shiftBadge}>
+              <MaterialCommunityIcons name="clock-outline" size={14} color={theme.primary} />
+              <Text style={styles.shiftText}>Shift: {userData.shiftStart || 'N/A'} - {userData.shiftEnd || 'N/A'}</Text>
+            </View>
+          )}
           
           <View style={styles.contactInfo}>
             <View style={styles.contactRow}>
@@ -94,7 +116,6 @@ const WorkerProfileScreen = ({ navigation }: any) => {
             <Switch value={isDarkMode} onValueChange={toggleTheme} trackColor={{ false: theme.border, true: theme.primary }} thumbColor={theme.surface} />
           </View>
 
-          {/* 🔥 UPDATED: Help & Support with Alert */}
           <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleHelpPress}>
             <View style={styles.menuItemLeft}>
               <View style={styles.menuIcon}>
@@ -125,9 +146,16 @@ const getStyles = (theme: ThemeColors) => StyleSheet.create({
   headerTitle: { fontSize: 28, fontWeight: '800', color: theme.textMain },
   
   profileSection: { alignItems: 'center', paddingVertical: 30, backgroundColor: theme.surface, borderBottomWidth: 1, borderBottomColor: theme.border, marginBottom: 20 },
-  avatarContainer: { width: 90, height: 90, borderRadius: 45, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 16, elevation: 4 },
-  userName: { fontSize: 24, fontWeight: '700', color: theme.textMain, marginBottom: 8 },
-  deptBadge: { backgroundColor: theme.primaryLight, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+  avatarContainer: { width: 90, height: 90, borderRadius: 45, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 16, elevation: 4, overflow: 'hidden' },
+  avatarImage: { width: '100%', height: '100%', borderRadius: 45 },
+  userName: { fontSize: 24, fontWeight: '700', color: theme.textMain, marginBottom: 6 },
+  
+  // 🔥 NAYA: Society Name & Shift Badge Styles
+  societyNameText: { fontSize: 14, color: theme.textMuted, marginBottom: 10, fontWeight: '500' },
+  shiftBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.primaryLight, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginBottom: 10 },
+  shiftText: { color: theme.primary, fontSize: 12, fontWeight: 'bold', marginLeft: 4 },
+
+  deptBadge: { backgroundColor: theme.primaryLight, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginBottom: 10 },
   deptText: { color: theme.primary, fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase' },
   
   contactInfo: { marginTop: 16, alignItems: 'center' },
