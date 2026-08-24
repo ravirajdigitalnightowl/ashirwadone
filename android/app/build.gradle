@@ -42,7 +42,7 @@ android {
         }
         release {
             storeFile file('ashirwadone.keystore')
-            storePassword 'AAPKA_PASSWORD_YAHAN_LIKHEIN' 
+            storePassword 'ashirwadone@9090' 
             keyAlias 'ashirwadone-alias'
             keyPassword 'ashirwadone@9090'
         }
