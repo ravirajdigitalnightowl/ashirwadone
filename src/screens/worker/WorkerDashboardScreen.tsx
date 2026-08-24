@@ -1,4 +1,4 @@
-// import React, { useContext, useCallback } from 'react';
+import React, { useContext, useCallback } from 'react';
 import { View, Text, SafeAreaView, FlatList, TouchableOpacity, StatusBar, StyleSheet, Platform, ActivityIndicator, RefreshControl } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { ThemeContext } from '../../context/ThemeContext';
@@ -13,19 +13,8 @@ const WorkerDashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
   const styles = getStyles(theme);
   const { userData } = useContext(AuthContext);
 
-  // 🔥 FIX: Extracted Infinite Query properties
-  const { 
-    data, 
-    isLoading, 
-    refetch, 
-    isRefetching,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage
-  } = useWorkerTasks();
-  
-  // 🔥 FIX: Correct way to extract data from useInfiniteQuery
-  const allTasks = data?.pages?.flatMap(page => page?.data?.tasks || []) || [];
+  const { data, isLoading, refetch, isRefetching } = useWorkerTasks();
+  const allTasks = data?.data?.tasks || [];
   
   // Sirf active tasks filter karein (Resolved hata dein)
   const activeTasks = allTasks.filter((t: any) => t.status !== 'Resolved');
@@ -33,11 +22,10 @@ const WorkerDashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
   const renderTicket = useCallback(({ item }: { item: any }) => {
     const statusColor = item.status === 'Pending' ? theme.status.pending : theme.status.inProgress;
     
-    // 🔥 UPDATE: Floor ko bhi combine karke address banaya gaya hai
+    // Tower aur FlatNo ko combine karke address banaya gaya hai
     const flatNo = item.createdBy?.flatNo || 'N/A';
     const tower = item.createdBy?.tower ? `${item.createdBy.tower} - ` : '';
-    const floor = item.createdBy?.floor ? `${item.createdBy.floor} - ` : '';
-    const displayAddress = `${tower}${floor}Flat ${flatNo}`;
+    const displayAddress = `${tower}Flat ${flatNo}`;
     
     return (
       <TouchableOpacity 
@@ -60,6 +48,7 @@ const WorkerDashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
         <View style={styles.ticketFooter}>
           <View style={styles.timeRow}>
             <MaterialCommunityIcons name="clock-outline" size={14} color={theme.iconMuted} />
+            {/* 🔥 UPDATE: Date ke sath time dikhaya gaya hai */}
             <Text style={styles.ticketTime}>
               Assigned on {new Date(item.updatedAt).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </Text>
@@ -96,18 +85,6 @@ const WorkerDashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) =>
                <MaterialCommunityIcons name="check-all" size={50} color={theme.iconMuted} />
                <Text style={styles.emptyText}>No tasks assigned right now!</Text>
             </View>
-          }
-          // 🔥 FIX: Infinite Scroll Props
-          onEndReached={() => {
-            if (hasNextPage && !isFetchingNextPage) {
-              fetchNextPage();
-            }
-          }}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <ActivityIndicator color={theme.primary} style={{ marginVertical: 20 }} />
-            ) : null
           }
         />
       )}

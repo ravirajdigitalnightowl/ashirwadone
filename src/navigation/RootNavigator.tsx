@@ -1,3 +1,4 @@
+
 import React, { useContext, useEffect, useRef, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text, Animated, AppState, DeviceEventEmitter, Alert, Platform, PermissionsAndroid } from 'react-native'; 
 import { NavigationContainer } from '@react-navigation/native';
@@ -26,6 +27,7 @@ import EditWorkerScreen from '../screens/admin/EditWorkerScreen';
 import AddResidentScreen from '../screens/admin/AddResidentScreen';
 import EditResidentScreen from '../screens/admin/EditResidentScreen';
 import ManageDepartmentsScreen from '../screens/admin/ManageDepartmentsScreen';
+// 🔥 NAYA IMPORT: Admin Visitors Screen
 import AdminVisitorsScreen from '../screens/admin/AdminVisitorsScreen';
 
 import CreateComplaintScreen from '../screens/resident/CreateComplaintScreen';
@@ -39,14 +41,6 @@ import WorkerSettingsScreen from '../screens/worker/WorkerSettingsScreen';
 import AddVisitorScreen from '../screens/security/AddVisitorScreen'; 
 import NotificationTroubleshootScreen from '../screens/common/NotificationTroubleshootScreen';
 
-// 🔥 NAYE IMPORTS (SaaS Features)
-import SuperAdminDashboardScreen from '../screens/superadmin/SuperAdminDashboardScreen';
-import CreateSocietyScreen from '../screens/superadmin/CreateSocietyScreen';
-import SocietyBrandingScreen from '../screens/admin/SocietyBrandingScreen';
-import AttendanceReportScreen from '../screens/admin/AttendanceReportScreen';
-import NoticeBoardScreen from '../screens/resident/NoticeBoardScreen';
-import AdminPostsListScreen from '../screens/admin/AdminPostsListScreen';
-
 const Stack = createStackNavigator<any>();
 
 let pendingNotificationData: any = null;
@@ -54,13 +48,6 @@ let pendingNotificationData: any = null;
 // 🔥 NAYA: Global timer map for per-query smart debounce
 const debounceTimers = new Map<string, NodeJS.Timeout>();
 const DEBOUNCE_DELAY = 10000; // 10 Seconds ka delay
-
-const SuperAdminStack = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false, cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS }}>
-    <Stack.Screen name="SuperAdminDashboard" component={SuperAdminDashboardScreen} options={{ gestureEnabled: false }} />
-    <Stack.Screen name="CreateSocietyScreen" component={CreateSocietyScreen} />
-  </Stack.Navigator>
-);
 
 const AdminStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false, cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS }}>
@@ -72,11 +59,8 @@ const AdminStack = () => (
     <Stack.Screen name="ManageDepartmentsScreen" component={ManageDepartmentsScreen} />
     <Stack.Screen name="AddResidentScreen" component={AddResidentScreen} />
     <Stack.Screen name="EditResidentScreen" component={EditResidentScreen} />
+    {/* 🔥 NAYA SCREEN ADDED */}
     <Stack.Screen name="AdminVisitorsScreen" component={AdminVisitorsScreen} />
-    {/* 🔥 NAYE SCREENS YAHAN ADD KIYE GAYE HAIN */}
-    <Stack.Screen name="SocietyBrandingScreen" component={SocietyBrandingScreen} />
-    <Stack.Screen name="AttendanceReportScreen" component={AttendanceReportScreen} />
-    <Stack.Screen name="AdminPostsListScreen" component={AdminPostsListScreen} />
   </Stack.Navigator>
 );
 
@@ -89,8 +73,6 @@ const ResidentStack = () => (
     <Stack.Screen name="GateApprovalScreen" component={GateApprovalScreen} options={{ cardStyleInterpolator: CardStyleInterpolators.forModalPresentationIOS, gestureDirection: 'vertical' }} />
     <Stack.Screen name="InviteGuestScreen" component={InviteGuestScreen} />
     <Stack.Screen name="NotificationTroubleshootScreen" component={NotificationTroubleshootScreen} />
-    {/* 🔥 NAYA NOTICE BOARD SCREEN */}
-    <Stack.Screen name="NoticeBoardScreen" component={NoticeBoardScreen} />
   </Stack.Navigator>
 );
 
@@ -154,10 +136,6 @@ const RootNavigator = () => {
         triggerDebouncedSync(['myVisitors']);
         triggerDebouncedSync(['adminStats']); 
         DeviceEventEmitter.emit('REFRESH_VISITORS'); 
-        break;
-      case 'NEW_POST': // 🔥 NAYA: Notice Board Post sync
-        triggerDebouncedSync(['residentPosts']);
-        triggerDebouncedSync(['adminPosts']);
         break;
       default:
         break;
@@ -318,8 +296,7 @@ const RootNavigator = () => {
       // ADMIN/WORKER Tickets & Silent Push (Foreground Update)
       const silentEventTypes = [
         'NEW_COMPLAINT', 'TASK_ASSIGNED', 'TICKET_UPDATED', 
-        'DASHBOARD_UPDATE', 'WORKER_DUTY_CHANGED', 'VISITOR_EXIT', 'NEW_VISITOR', 
-        'NEW_POST' // 🔥 NAYA: Notice Board Post Foreground Sync
+        'DASHBOARD_UPDATE', 'WORKER_DUTY_CHANGED', 'VISITOR_EXIT', 'NEW_VISITOR'
       ];
       
       if (type && silentEventTypes.includes(type)) {
@@ -394,8 +371,6 @@ const RootNavigator = () => {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {userRole === null ? (
           <Stack.Screen name="AuthFlow" component={AuthStack} />
-        ) : userRole === 'SUPER_ADMIN' ? ( // 🔥 SUPER_ADMIN ROUTE ADDED
-          <Stack.Screen name="SuperAdminFlow" component={SuperAdminStack} />
         ) : userRole === 'ADMIN' ? (
           <Stack.Screen name="AdminFlow" component={AdminStack} />
         ) : userRole === 'WORKER' ? (

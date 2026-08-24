@@ -1,3 +1,4 @@
+
 import React, { useContext, useState, useEffect } from 'react';
 import { View, Text, SafeAreaView, FlatList, TouchableOpacity, Switch, StyleSheet, Platform, ActivityIndicator, RefreshControl, TextInput, ScrollView } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -34,10 +35,7 @@ const WorkerCard = React.memo(({ item, theme, styles, navigation, handleToggle }
         </View>
         <View style={styles.workerInfo}>
           <Text style={[styles.workerName, !localIsActive && styles.inactiveText]}>{item.name}</Text>
-          {/* 🔥 UPDATE: Designation bhi yahan dikhega */}
-          <Text style={styles.workerDept}>
-            {item.designation ? `${item.designation} • ` : ''}{item.department || 'Staff'} • {item.phone}
-          </Text>
+          <Text style={styles.workerDept}>{item.department || 'Staff'} • {item.phone}</Text>
           
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
             <Text style={[styles.statusText, { color: localIsActive ? theme.status.resolved : theme.status.pending, marginRight: 8 }]}>
@@ -61,7 +59,7 @@ const WorkerCard = React.memo(({ item, theme, styles, navigation, handleToggle }
           style={{ padding: 4, marginBottom: 6 }}
           onPress={() => navigation.navigate('EditWorkerScreen', { worker: item })}
         >
-            <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.primary} />
+          <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.primary} />
         </TouchableOpacity>
         
         <Switch
@@ -90,30 +88,12 @@ const ManageStaffScreen = ({ navigation }: any) => {
     return () => clearTimeout(handler);
   }, [searchInput]);
 
-  // 🔥 FIX: Extracted Infinite Query properties
-  const { 
-    data, 
-    isLoading, 
-    refetch, 
-    isRefetching,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage
-  } = useWorkers(debouncedSearch, selectedDept);
-  
+  const { data, isLoading, refetch, isRefetching } = useWorkers(debouncedSearch, selectedDept);
   const { data: deptData } = useDepartments();
   const { mutate: toggleStatus } = useToggleWorkerStatus();
 
-  // 🔥 FIX: Correct way to extract data from useInfiniteQuery
-  const workers = data?.pages?.flatMap(page => page?.data?.workers || []) || [];
+  const workers = data?.data?.workers || [];
   const activeDepartments = deptData?.data?.departments?.filter((d: any) => d.isActive) || [];
-
-  // 🔥 FIX: Infinite Scroll Load More handler
-  const handleLoadMore = () => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  };
 
   const handleToggle = (id: string, currentStatus: boolean) => {
     toggleStatus({ workerId: id, isActive: !currentStatus });
@@ -199,14 +179,6 @@ const ManageStaffScreen = ({ navigation }: any) => {
               handleToggle={handleToggle} 
             />
           )}
-          // 🔥 FIX: Infinite Scroll Props
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <ActivityIndicator color={theme.primary} style={{ marginVertical: 20 }} />
-            ) : null
-          }
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.primary} />}

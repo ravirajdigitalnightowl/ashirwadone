@@ -1,3 +1,4 @@
+
 import React, { useState, useContext } from 'react';
 import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, TextInput, StyleSheet, Platform, Alert, KeyboardAvoidingView, ActivityIndicator, Image, Modal } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -20,25 +21,15 @@ const WorkerTaskDetailsScreen = ({ route, navigation }: any) => {
   const [mediaModalVisible, setMediaModalVisible] = useState(false);
 
   // Fetch from cached list
-  const { data, isLoading } = useWorkerTasks();
-  
-  // 🔥 FIX: useInfiniteQuery data sahi tarike se extract kiya gaya hai
-  const allTasks = data?.pages?.flatMap(page => page?.data?.tasks || []) || [];
-  const taskData = allTasks.find((t: any) => t._id === ticketId);
+  const { data } = useWorkerTasks();
+  const taskData = data?.data?.tasks?.find((t: any) => t._id === ticketId);
 
   // Mutation to complete task
   const { mutate: completeTask, isPending } = useCompleteTask(() => navigation.goBack());
 
-  // 🔥 FIX: Loading state agar data cache mein nahi mila
-  if (isLoading || !taskData) {
-    return (
-      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </SafeAreaView>
-    );
-  }
+  if (!taskData) return null;
 
-  // Task complete ho chuka hai ya nahi, uski state
+  // 🔥 UPDATE: Task complete ho chuka hai ya nahi, uski state
   const isCompleted = taskData.status === 'Resolved';
 
   const handleCompleteJob = () => {
@@ -124,11 +115,8 @@ const WorkerTaskDetailsScreen = ({ route, navigation }: any) => {
               <MaterialCommunityIcons name="map-marker-radius-outline" size={30} color={theme.primary} />
               <View style={styles.residentDetails}>
                 <Text style={styles.residentName}>{taskData.createdBy?.name || 'Resident'}</Text>
-                {/* 🔥 UPDATE: Floor bhi address mein add kiya gaya hai */}
                 <Text style={styles.residentFlat}>
-                  {taskData.createdBy?.tower ? `Tower ${taskData.createdBy.tower}, ` : ''}
-                  {taskData.createdBy?.floor ? `Floor ${taskData.createdBy.floor}, ` : ''}
-                  Flat {taskData.createdBy?.flatNo || 'N/A'}
+                  {taskData.createdBy?.tower ? `Tower ${taskData.createdBy.tower}, ` : ''}Flat {taskData.createdBy?.flatNo || 'N/A'}
                 </Text>
               </View>
             </View>
@@ -138,7 +126,7 @@ const WorkerTaskDetailsScreen = ({ route, navigation }: any) => {
           <Text style={styles.sectionLabel}>{isCompleted ? "Completion Report" : "Action Center"}</Text>
           <View style={styles.actionCard}>
             
-            {/* Read-only Mode if task is Completed */}
+            {/* 🔥 UPDATE: Read-only Mode if task is Completed */}
             {isCompleted ? (
               <View>
                 <View style={styles.resolvedBadgeBox}>
@@ -264,7 +252,7 @@ const getStyles = (theme: ThemeColors) => StyleSheet.create({
   completeBtn: { flexDirection: 'row', backgroundColor: theme.status.resolved, padding: 18, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: theme.status.resolved, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
   completeBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
 
-  // Styles for Read-Only Completed State
+  // 🔥 NAYA: Styles for Read-Only Completed State
   resolvedBadgeBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.status.resolved + '15', padding: 14, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: theme.status.resolved },
   resolvedBadgeText: { color: theme.status.resolved, fontSize: 15, fontWeight: 'bold', marginLeft: 8 },
   readOnlyBox: { backgroundColor: theme.background, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: theme.border, marginBottom: 20 },

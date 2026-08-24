@@ -13,7 +13,7 @@ const GateApprovalScreen = ({ route, navigation }: any) => {
   const { theme } = useContext(ThemeContext);
   const styles = getStyles(theme);
 
-  // 🔥 UPDATE: purpose aur photoUrl ko safely destructure kiya gaya hai
+  // 🔥 UPDATE: purpose ko bhi destructure kiya gaya hai
   const { visitorId, visitorName, visitorType, purpose, vehicleNo, photoUrl } = route.params || { 
     visitorId: 'dummy', visitorName: 'Unknown', visitorType: 'Visitor', purpose: '', vehicleNo: '', photoUrl: null 
   };
@@ -88,7 +88,7 @@ const GateApprovalScreen = ({ route, navigation }: any) => {
             <Text style={styles.badgeText}>{visitorType}</Text>
           </View>
           
-          {/* Purpose display karna */}
+          {/* 🔥 NAYA: Purpose display karna */}
           {purpose ? (
             <Text style={styles.purposeText}>Reason: {purpose}</Text>
           ) : null}
@@ -170,6 +170,7 @@ const getStyles = (theme: ThemeColors) => StyleSheet.create({
   badge: { backgroundColor: theme.primaryLight + '20', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: theme.primary + '50', marginBottom: 12 },
   badgeText: { color: theme.primaryLight, fontSize: 14, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
   
+  // 🔥 NAYA: Purpose text style
   purposeText: { fontSize: 16, color: theme.primaryLight, marginBottom: 8, fontStyle: 'italic', textAlign: 'center', paddingHorizontal: 20 },
   
   vehicleText: { fontSize: 16, color: '#D1D5DB', marginBottom: 12, fontWeight: '600' },

@@ -1,4 +1,4 @@
-// // // src/screens/resident/MyVisitorsScreen.tsx
+// // src/screens/resident/MyVisitorsScreen.tsx
 import React, { useContext, useState } from 'react';
 import { 
   View, Text, SafeAreaView, FlatList, TouchableOpacity, StyleSheet, 
@@ -16,7 +16,6 @@ const MyVisitorsScreen = ({ navigation }: any) => {
 
   const [timeRange, setTimeRange] = useState('Today');
   const [isMonthView, setIsMonthView] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   
   const [activeFilter, setActiveFilter] = useState('Expected'); 
   
@@ -24,23 +23,8 @@ const MyVisitorsScreen = ({ navigation }: any) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
-  // 🔥 UPDATE: useInfiniteQuery properties extracted
-  const { 
-    data, 
-    isLoading, 
-    refetch, 
-    isRefetching,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage
-  } = useMyVisitors(
-    isMonthView ? undefined : timeRange, 
-    isMonthView ? timeRange : undefined, 
-    selectedYear
-  );
-
-  // 🔥 FIX: Correct way to extract data from useInfiniteQuery
-  const visitors = data?.pages?.flatMap(page => page?.data?.visitors || []) || [];
+  const { data, isLoading, refetch, isRefetching } = useMyVisitors(timeRange);
+  const visitors = data?.data?.visitors || [];
 
   const filteredVisitors = visitors.filter((v: any) => {
     if (activeFilter === 'All') return true;
@@ -79,6 +63,7 @@ const MyVisitorsScreen = ({ navigation }: any) => {
     }
   };
 
+  // 🔥 NAYA: Name truncate karne ka logic taaki UI kharab na ho
   const formatDisplayNames = (nameStr: string) => {
     if (!nameStr) return 'Unknown';
     const nameArr = nameStr.split(',').map(n => n.trim());
@@ -95,9 +80,11 @@ const MyVisitorsScreen = ({ navigation }: any) => {
       onPress={() => openVisitorDetails(item)}
     >
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        {/* 🔥 FIX: Text ko flex: 1 aur numberOfLines diya, taaki badge bahar na jaye */}
         <Text style={{ flex: 1, fontSize: 18, fontWeight: '700', color: theme.textMain, marginRight: 12 }} numberOfLines={2}>
           {formatDisplayNames(item.name)}
         </Text>
+        {/* 🔥 FIX: Badge ko flexShrink: 0 diya, taaki wo sikude ya hide na ho */}
         <View style={{ flexShrink: 0, backgroundColor: getStatusColor(item.status) + '20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: getStatusColor(item.status) }}>
           <Text style={{ color: getStatusColor(item.status), fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase' }}>{item.status}</Text>
         </View>
@@ -149,15 +136,6 @@ const MyVisitorsScreen = ({ navigation }: any) => {
                 <MaterialCommunityIcons name="arrow-left" size={18} color={theme.textMain} />
               </TouchableOpacity>
 
-              {/* Year Selector */}
-              <TouchableOpacity onPress={() => setSelectedYear(String(Number(selectedYear) - 1))} style={{ marginRight: 10 }}>
-                <MaterialCommunityIcons name="chevron-left" size={20} color={theme.textMain} />
-              </TouchableOpacity>
-              <Text style={{ fontSize: 14, fontWeight: '800', color: theme.primary, marginRight: 10 }}>{selectedYear}</Text>
-              <TouchableOpacity onPress={() => setSelectedYear(String(Number(selectedYear) + 1))} style={{ marginRight: 10 }}>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textMain} />
-              </TouchableOpacity>
-
               {monthFilters.map((month) => (
                 <TouchableOpacity 
                   key={month}
@@ -184,7 +162,6 @@ const MyVisitorsScreen = ({ navigation }: any) => {
                   onPress={() => { 
                     if (range === 'By Month') {
                       setIsMonthView(true);
-                      setTimeRange(monthFilters[new Date().getMonth()]);
                     } else {
                       setTimeRange(range);
                     }
@@ -228,18 +205,6 @@ const MyVisitorsScreen = ({ navigation }: any) => {
           contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.primary} />}
           ListEmptyComponent={<Text style={styles.emptyText}>No visitors found.</Text>}
-          // 🔥 FIX: Infinite Scroll Props
-          onEndReached={() => {
-            if (hasNextPage && !isFetchingNextPage) {
-              fetchNextPage();
-            }
-          }}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <ActivityIndicator color={theme.primary} style={{ marginVertical: 20 }} />
-            ) : null
-          }
         />
       )}
 
@@ -277,6 +242,7 @@ const MyVisitorsScreen = ({ navigation }: any) => {
                     )}
                   </TouchableOpacity>
                   <View style={{ flex: 1, marginLeft: 16 }}>
+                    {/* 🔥 Modal mein pura naam dikhega */}
                     <Text style={styles.modalName}>{selectedVisitor.name}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedVisitor.status) }]}>
                       <Text style={styles.statusText}>{selectedVisitor.status}</Text>

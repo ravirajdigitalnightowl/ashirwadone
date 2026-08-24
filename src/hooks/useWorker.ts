@@ -1,21 +1,14 @@
-// src/hooks/useWorker.ts
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { workerService } from '../services/workerService';
 import { Alert } from 'react-native';
 
-// ==========================================
-// WORKER TASKS HOOKS
-// ==========================================
-
-// 🔥 UPDATE: Upgraded to useInfiniteQuery & added month/year filters
-export const useWorkerTasks = (status: string = 'All', timeRange: string = 'This Month', month?: string, year?: string) => {
-  return useInfiniteQuery({
-    queryKey: ['workerTasks', status, timeRange, month, year],
-    queryFn: ({ pageParam = 1 }) => workerService.getTasks({ status, timeRange, month, year, pageParam, limit: 10 }),
-    getNextPageParam: (lastPage, allPages) => {
-      return lastPage.hasMore ? allPages.length + 1 : undefined;
-    },
-    initialPageParam: 1,
+// 🔥 UPDATE: Removed page and limit parameters. Set default timeRange to 'This Month'
+export const useWorkerTasks = (status: string = 'All', timeRange: string = 'This Month') => {
+  return useQuery({
+    // Query key se page aur limit hata diya
+    queryKey: ['workerTasks', status, timeRange],
+    queryFn: () => workerService.getTasks(status, timeRange),
   });
 };
 

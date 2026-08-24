@@ -1,3 +1,4 @@
+
 import React, { useContext, useState, useEffect } from 'react';
 import { View, Text, SafeAreaView, FlatList, TouchableOpacity, Switch, StyleSheet, Platform, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -32,9 +33,8 @@ const ResidentCard = React.memo(({ item, theme, styles, navigation, handleToggle
         <View style={styles.workerInfo}>
           <Text style={[styles.workerName, !localIsActive && styles.inactiveText]}>{item.name}</Text>
           
-          {/* 🔥 UPDATE: Floor field bhi add kiya display mein */}
           <Text style={styles.workerDept}>
-            {item.tower ? `${item.tower} - ` : ''}{item.floor ? `${item.floor} - ` : ''}Flat {item.flatNo} • {item.phone}
+            {item.tower ? `${item.tower}, ` : ''}Flat {item.flatNo} • {item.phone}
           </Text>
           
           <Text style={[styles.statusText, { color: localIsActive ? theme.status.resolved : theme.status.pending }]}>
@@ -79,28 +79,11 @@ const ManageResidentsScreen = ({ navigation }: any) => {
     return () => clearTimeout(handler);
   }, [searchInput]);
 
-  // 🔥 FIX: Extracted Infinite Query properties
-  const { 
-    data, 
-    isLoading, 
-    refetch, 
-    isRefetching,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage
-  } = useResidents(debouncedSearch);
-  
+  // Data Fetching Hooks (passed debouncedSearch to fetch specific data)
+  const { data, isLoading, refetch, isRefetching } = useResidents(debouncedSearch);
   const { mutate: toggleStatus } = useToggleResidentStatus();
 
-  // 🔥 FIX: Correct way to extract data from useInfiniteQuery
-  const residents = data?.pages?.flatMap(page => page?.data?.residents || []) || [];
-
-  // 🔥 FIX: Infinite Scroll Load More handler
-  const handleLoadMore = () => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  };
+  const residents = data?.data?.residents || [];
 
   const handleToggle = (id: string, currentStatus: boolean) => {
     toggleStatus({ userId: id, isActive: !currentStatus });
@@ -147,14 +130,6 @@ const ManageResidentsScreen = ({ navigation }: any) => {
               handleToggle={handleToggle}
             />
           )}
-          // 🔥 FIX: Infinite Scroll Props
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <ActivityIndicator color={theme.primary} style={{ marginVertical: 20 }} />
-            ) : null
-          }
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.primary} />}

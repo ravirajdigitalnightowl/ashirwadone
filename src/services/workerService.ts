@@ -1,14 +1,10 @@
-// src/services/workerService.ts
+
 import api from './api';
 
 export const workerService = {
-  // 🔥 UPDATE: Added page, limit, month, and year for Infinite Scrolling & SaaS filtering
-  getTasks: async ({ status = 'All', timeRange = 'This Month', month, year, pageParam = 1, limit = 10 }: any) => {
-    let url = `/worker/tasks?status=${status}&timeRange=${timeRange}&page=${pageParam}&limit=${limit}`;
-    if (month && year) {
-      url += `&month=${month}&year=${year}`;
-    }
-    const response = await api.get(url);
+  // 🔥 UPDATE: Removed page and limit params, updated endpoint URL
+  getTasks: async (status: string = 'All', timeRange: string = 'This Month') => {
+    const response = await api.get(`/worker/tasks?status=${status}&timeRange=${timeRange}`);
     return response.data;
   },
 

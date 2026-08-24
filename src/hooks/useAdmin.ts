@@ -1,5 +1,4 @@
-// // src/hooks/useAdmin.ts
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminService } from '../services/adminService';
 import { Alert } from 'react-native';
 
@@ -7,15 +6,12 @@ import { Alert } from 'react-native';
 // TICKET HOOKS
 // ==========================================
 
-// 🔥 UPDATE: Upgraded to useInfiniteQuery & added month/year filters
-export const useAllTickets = (status: string = 'All', timeRange: string = 'This Month', month?: string, year?: string) => {
-  return useInfiniteQuery({
-    queryKey: ['adminTickets', status, timeRange, month, year],
-    queryFn: ({ pageParam = 1 }) => adminService.getAllTickets({ status, timeRange, month, year, pageParam, limit: 10 }),
-    getNextPageParam: (lastPage, allPages) => {
-      return lastPage.hasMore ? allPages.length + 1 : undefined;
-    },
-    initialPageParam: 1,
+// 🔥 UPDATE: Removed page and limit parameters. Set default timeRange to 'This Month'
+export const useAllTickets = (status: string = 'All', timeRange: string = 'This Month') => {
+  return useQuery({
+    // Query key se bhi page aur limit hata diye gaye hain
+    queryKey: ['adminTickets', status, timeRange],
+    queryFn: () => adminService.getAllTickets(status, timeRange),
     staleTime: Infinity,
   });
 };
@@ -51,21 +47,6 @@ export const useAdminStats = () => {
     queryKey: ['adminStats'],
     queryFn: adminService.getDashboardStats,
     staleTime: Infinity,
-  });
-};
-
-// ==========================================
-// ATTENDANCE HOOK (🔥 NEW SAAS FEATURE)
-// ==========================================
-
-export const useAttendanceReport = (date?: string, month?: string, year?: string) => {
-  return useInfiniteQuery({
-    queryKey: ['adminAttendance', date, month, year],
-    queryFn: ({ pageParam = 1 }) => adminService.getAttendanceReport({ date, month, year, pageParam, limit: 10 }),
-    getNextPageParam: (lastPage, allPages) => {
-      return lastPage.hasMore ? allPages.length + 1 : undefined;
-    },
-    initialPageParam: 1,
   });
 };
 
@@ -106,15 +87,10 @@ export const useAddWorker = (onSuccessCallback?: () => void) => {
   });
 };
 
-// 🔥 UPDATE: Upgraded to useInfiniteQuery
 export const useWorkers = (search: string = '', department: string = 'All') => {
-  return useInfiniteQuery({
+  return useQuery({
     queryKey: ['adminWorkers', search, department],
-    queryFn: ({ pageParam = 1 }) => adminService.getAllWorkers({ search, department, pageParam, limit: 10 }),
-    getNextPageParam: (lastPage, allPages) => {
-      return lastPage.hasMore ? allPages.length + 1 : undefined;
-    },
-    initialPageParam: 1,
+    queryFn: () => adminService.getAllWorkers(search, department),
   });
 };
 
@@ -122,15 +98,10 @@ export const useWorkers = (search: string = '', department: string = 'All') => {
 // RESIDENT HOOKS
 // ==========================================
 
-// 🔥 UPDATE: Upgraded to useInfiniteQuery
 export const useResidents = (search: string = '') => {
-  return useInfiniteQuery({
+  return useQuery({
     queryKey: ['adminResidents', search],
-    queryFn: ({ pageParam = 1 }) => adminService.getAllResidents({ search, pageParam, limit: 10 }),
-    getNextPageParam: (lastPage, allPages) => {
-      return lastPage.hasMore ? allPages.length + 1 : undefined;
-    },
-    initialPageParam: 1,
+    queryFn: () => adminService.getAllResidents(search),
   });
 };
 
@@ -199,11 +170,6 @@ export const useCreateDepartment = (onSuccessCallback?: () => void) => {
       queryClient.invalidateQueries({ queryKey: ['adminDepartments'] });
       if (onSuccessCallback) onSuccessCallback();
     },
-    // 🔥 FIX: Error handler add kiya gaya hai
-    onError: (error: any) => {
-      console.log("Create Dept Error:", error.response?.data);
-      Alert.alert('Error', error.response?.data?.message || 'Failed to create department');
-    }
   });
 };
 
@@ -214,10 +180,5 @@ export const useUpdateDepartment = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminDepartments'] });
     },
-    // 🔥 FIX: Error handler add kiya gaya hai
-    onError: (error: any) => {
-      console.log("Update Dept Error:", error.response?.data);
-      Alert.alert('Error', error.response?.data?.message || 'Failed to update department');
-    }
   });
 };

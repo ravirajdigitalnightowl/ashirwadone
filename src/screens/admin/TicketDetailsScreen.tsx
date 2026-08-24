@@ -1,3 +1,4 @@
+
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, TextInput, StyleSheet, Platform, Alert, Animated, KeyboardAvoidingView, ActivityIndicator, Image, Modal } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -27,9 +28,7 @@ const TicketDetailsScreen: React.FC<RouteParams> = ({ route, navigation }) => {
   const { data: workersRes } = useWorkers(); 
   
   const activeDepartments = deptData?.data?.departments?.filter((d: any) => d.isActive) || [];
-  
-  // 🔥 FIX: useInfiniteQuery se workers ka data flatten karke nikala hai
-  const availableWorkers = workersRes?.pages?.flatMap(page => page?.data?.workers || []) || [];
+  const availableWorkers = workersRes?.data?.workers || [];
 
   // Mutations
   const { mutate: assignTicket, isPending: isAssigning } = useAssignTicket(() => navigation.goBack());
@@ -105,6 +104,7 @@ const TicketDetailsScreen: React.FC<RouteParams> = ({ route, navigation }) => {
             <View style={styles.card}>
               <View style={styles.cardHeader}>
                 <Text style={styles.ticketId}>#{ticketData._id.slice(-6).toUpperCase()}</Text>
+                {/* 🔥 UPDATE: Date ke sath time display kiya gaya hai */}
                 <Text style={styles.dateText}>
                   {new Date(ticketData.createdAt).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </Text>
@@ -166,18 +166,6 @@ const TicketDetailsScreen: React.FC<RouteParams> = ({ route, navigation }) => {
                     <Text style={[styles.workerChipText, assignedWorker === worker._id && { color: '#FFF' }]}>
                       {worker.name}
                     </Text>
-                    
-                    {/* 🔥 NAYA: Designation yahan dikhega */}
-                    {worker.designation && (
-                      <Text style={{ 
-                        fontSize: 10, 
-                        fontWeight: '600', 
-                        color: assignedWorker === worker._id ? '#FFFFFF90' : theme.textMuted, 
-                        marginTop: 2 
-                      }}>
-                        {worker.designation}
-                      </Text>
-                    )}
                     
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: worker.isOnDuty ? theme.status.resolved : theme.textMuted, marginRight: 4 }} />

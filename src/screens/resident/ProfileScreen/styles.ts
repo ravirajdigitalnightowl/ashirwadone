@@ -1,3 +1,4 @@
+
 import { StyleSheet, Platform } from 'react-native';
 import { ThemeColors } from '../../../theme/colors';
 
@@ -20,16 +21,7 @@ export const getStyles = (theme: ThemeColors) => StyleSheet.create({
     marginBottom: 16,
   },
   avatarText: { fontSize: 36, fontWeight: 'bold', color: theme.primary },
-  userName: { fontSize: 24, fontWeight: '700', color: theme.textMain, marginBottom: 6 },
-  
-  // 🔥 NAYA: Society Name Style
-  societyName: { 
-    fontSize: 14, 
-    color: theme.textMuted, 
-    marginBottom: 6, 
-    fontWeight: '500' 
-  },
-  
+  userName: { fontSize: 24, fontWeight: '700', color: theme.textMain, marginBottom: 4 },
   flatDetails: { fontSize: 16, color: theme.textMuted, fontWeight: '500' },
 
   menuContainer: { paddingHorizontal: 20 },

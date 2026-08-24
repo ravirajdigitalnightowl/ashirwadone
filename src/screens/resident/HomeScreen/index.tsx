@@ -1,7 +1,8 @@
+
 import React, { useRef, useEffect, useCallback, useContext, useState } from 'react';
 import { View, Text, SafeAreaView, FlatList, TouchableOpacity, Animated, StatusBar, ActivityIndicator, RefreshControl, StyleSheet, Platform, ScrollView } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { getStyles } from './styles'; 
+import { getStyles } from './styles'; // Make sure this path is correct for HomeScreen
 import { ThemeContext } from '../../../context/ThemeContext';
 import { ThemeColors } from '../../../theme/colors';
 
@@ -62,6 +63,7 @@ const ComplaintCard: React.FC<ComplaintCardProps> = React.memo(({ item, index, t
       <Text style={styles.cardTitle}>{item.title}</Text>
       <View style={styles.footerRow}>
         <MaterialCommunityIcons name="calendar-clock" size={14} color={theme.iconMuted} />
+        {/* 🔥 UPDATE: Date ke sath time bhi dikhaya gaya hai */}
         <Text style={styles.date}>
           {new Date(item.createdAt).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </Text>
@@ -70,35 +72,22 @@ const ComplaintCard: React.FC<ComplaintCardProps> = React.memo(({ item, index, t
   );
 });
 
+
 const HomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
   const { theme, isDarkMode } = useContext(ThemeContext);
   const styles = getStyles(theme);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  // 🔥 UPDATE: Filters State
+  // 🔥 UPDATE: Pagination removed, Defaults updated
   const [statusFilter, setStatusFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('Today');
+  
+  // 🔥 UPDATE: Inline Chip toggle ke liye state
   const [isMonthView, setIsMonthView] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
-  // React Query Hook (Infinite Query)
-  const { 
-    data, 
-    isLoading, 
-    refetch, 
-    isRefetching,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage
-  } = useMyTickets(
-    statusFilter, 
-    isMonthView ? undefined : dateFilter, 
-    isMonthView ? dateFilter : undefined, 
-    selectedYear
-  );
-
-  // 🔥 FIX: Extracting data correctly for Infinite Query
-  const tickets = data?.pages?.flatMap(page => page?.data?.tickets || []) || [];
+  // React Query Hook (Pagination parameters hata diye hain)
+  const { data, isLoading, refetch, isRefetching } = useMyTickets(statusFilter, dateFilter);
+  const tickets = data?.data?.tickets || [];
 
   const handleFabPressIn = () => Animated.spring(scaleAnim, { toValue: 0.9, useNativeDriver: true }).start();
   
@@ -135,7 +124,7 @@ const HomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Date Filter (Primary - Inline Expand Logic) */}
+      {/* 🔥 SWAPPED: Date Filter (Primary - Inline Expand Logic) IS ON TOP */}
       <View style={{ paddingHorizontal: 20, paddingTop: 15, paddingBottom: 5 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center' }}>
           
@@ -151,15 +140,6 @@ const HomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                 onPress={() => setIsMonthView(false)}
               >
                 <MaterialCommunityIcons name="arrow-left" size={18} color={theme.textMain} />
-              </TouchableOpacity>
-
-              {/* Year Selector */}
-              <TouchableOpacity onPress={() => setSelectedYear(String(Number(selectedYear) - 1))} style={{ marginRight: 10 }}>
-                <MaterialCommunityIcons name="chevron-left" size={20} color={theme.textMain} />
-              </TouchableOpacity>
-              <Text style={{ fontSize: 14, fontWeight: '800', color: theme.primary, marginRight: 10 }}>{selectedYear}</Text>
-              <TouchableOpacity onPress={() => setSelectedYear(String(Number(selectedYear) + 1))} style={{ marginRight: 10 }}>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textMain} />
               </TouchableOpacity>
 
               {/* Months List */}
@@ -193,7 +173,6 @@ const HomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
                   onPress={() => { 
                     if (range === 'By Month') {
                       setIsMonthView(true);
-                      setDateFilter(monthFilters[new Date().getMonth()]); // Default to current month
                     } else {
                       setDateFilter(range);
                     }
@@ -213,7 +192,7 @@ const HomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         </ScrollView>
       </View>
 
-      {/* Status Filter (Secondary) */}
+      {/* 🔥 SWAPPED: Status Filter (Secondary) IS BELOW */}
       <View style={{ paddingHorizontal: 20, paddingBottom: 15 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {['All', 'Pending', 'In-Progress', 'Resolved'].map((status) => (
@@ -234,7 +213,7 @@ const HomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         </ScrollView>
       </View>
 
-      {/* 🔥 UPDATE: FlatList with Infinite Scroll */}
+      {/* 🔥 UPDATE: Data Loading and pagination removed */}
       {isLoading && !isRefetching ? (
         <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 40 }} />
       ) : (
@@ -246,18 +225,6 @@ const HomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={theme.primary} />}
           ListEmptyComponent={<Text style={{ textAlign: 'center', color: theme.textMuted, marginTop: 40 }}>No complaints found.</Text>}
-          // Infinite Scroll Props
-          onEndReached={() => {
-            if (hasNextPage && !isFetchingNextPage) {
-              fetchNextPage();
-            }
-          }}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <ActivityIndicator color={theme.primary} style={{ marginVertical: 20 }} />
-            ) : null
-          }
         />
       )}
 
@@ -276,5 +243,4 @@ const HomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
     </SafeAreaView>
   );
 };
-
 export default HomeScreen;

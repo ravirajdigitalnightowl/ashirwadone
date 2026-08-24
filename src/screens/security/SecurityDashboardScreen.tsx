@@ -1,3 +1,4 @@
+
 import React, { useContext, useState, useEffect } from 'react';
 import { 
   View, Text, SafeAreaView, FlatList, TouchableOpacity, StyleSheet, 
@@ -15,25 +16,12 @@ const SecurityDashboardScreen = ({ navigation }: any) => {
   const styles = getStyles(theme);
   const { userData } = useContext(AuthContext);
 
+  // 🔥 UPDATE: Default dateFilter 'Today' set kiya aur isMonthView state add ki (Pagination removed)
   const [timeRange, setTimeRange] = useState('Today');
   const [isMonthView, setIsMonthView] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
-  // 🔥 FIX: Extracted Infinite Query properties
-  const { 
-    data, 
-    isLoading, 
-    refetch, 
-    isRefetching,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage
-  } = useActiveVisitors(
-    isMonthView ? undefined : timeRange, 
-    isMonthView ? timeRange : undefined, 
-    selectedYear
-  );
-  
+  // Filtering from backend (Pagination logic removed)
+  const { data, isLoading, refetch, isRefetching } = useActiveVisitors(timeRange);
   const { mutate: markExit, isPending: isExiting } = useMarkExit();
 
   const [activeFilter, setActiveFilter] = useState('Inside');
@@ -51,13 +39,12 @@ const SecurityDashboardScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     const listener = DeviceEventEmitter.addListener('REFRESH_VISITORS', () => {
-      refetch(); 
+      refetch(); // Page reset removed
     });
     return () => listener.remove();
   }, [refetch]);
 
-  // 🔥 FIX: Correct way to extract data from useInfiniteQuery
-  const visitors = data?.pages?.flatMap(page => page?.data?.visitors || []) || [];
+  const visitors = data?.data?.visitors || [];
 
   const filteredVisitors = visitors.filter((v: any) => {
     if (activeFilter === 'All') return true;
@@ -143,8 +130,7 @@ const SecurityDashboardScreen = ({ navigation }: any) => {
         <View style={styles.visitorInfo}>
           <Text style={styles.visitorName} numberOfLines={1}>{item.name}</Text>
           <Text style={styles.visitorDetails}>
-            {/* 🔥 UPDATE: Floor field bhi add kiya display mein */}
-            {item.tower ? `${item.tower} - ` : ''}{item.floor ? `${item.floor} - ` : ''}Flat {item.flatNo}
+            {item.tower ? `${item.tower} - ` : ''}Flat {item.flatNo}
           </Text>
           
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
@@ -190,12 +176,13 @@ const SecurityDashboardScreen = ({ navigation }: any) => {
         </View>
       </View>
 
-      {/* Date Filter (Primary - Inline Expand Logic) IS ON TOP */}
+      {/* 🔥 UPDATE: Date Filter (Primary - Inline Expand Logic) IS ON TOP */}
       <View style={{ paddingHorizontal: 20, paddingTop: 15, paddingBottom: 5, backgroundColor: theme.surface }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ alignItems: 'center' }}>
           
           {isMonthView ? (
             <>
+              {/* Back Button to exit Month View */}
               <TouchableOpacity 
                 style={styles.backIconBtn} 
                 onPress={() => setIsMonthView(false)}
@@ -203,15 +190,7 @@ const SecurityDashboardScreen = ({ navigation }: any) => {
                 <MaterialCommunityIcons name="arrow-left" size={18} color={theme.textMain} />
               </TouchableOpacity>
 
-              {/* Year Selector */}
-              <TouchableOpacity onPress={() => setSelectedYear(String(Number(selectedYear) - 1))} style={{ marginRight: 10 }}>
-                <MaterialCommunityIcons name="chevron-left" size={20} color={theme.textMain} />
-              </TouchableOpacity>
-              <Text style={{ fontSize: 14, fontWeight: '800', color: theme.primary, marginRight: 10 }}>{selectedYear}</Text>
-              <TouchableOpacity onPress={() => setSelectedYear(String(Number(selectedYear) + 1))} style={{ marginRight: 10 }}>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textMain} />
-              </TouchableOpacity>
-
+              {/* Months List */}
               {monthFilters.map((month) => (
                 <TouchableOpacity 
                   key={month}
@@ -227,6 +206,7 @@ const SecurityDashboardScreen = ({ navigation }: any) => {
             </>
           ) : (
             <>
+              {/* Standard Filters List */}
               {standardDateFilters.map((range) => (
                 <TouchableOpacity 
                   key={range}
@@ -238,7 +218,6 @@ const SecurityDashboardScreen = ({ navigation }: any) => {
                   onPress={() => { 
                     if (range === 'By Month') {
                       setIsMonthView(true);
-                      setTimeRange(monthFilters[new Date().getMonth()]);
                     } else {
                       setTimeRange(range);
                     }
@@ -273,7 +252,7 @@ const SecurityDashboardScreen = ({ navigation }: any) => {
         </ScrollView>
       </View>
 
-      {/* 🔥 FIX: Data Loading and Infinite Scroll */}
+      {/* 🔥 UPDATE: Data Loading and pagination removed */}
       {isLoading && !isRefetching ? (
         <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 40 }} />
       ) : (
@@ -289,17 +268,6 @@ const SecurityDashboardScreen = ({ navigation }: any) => {
               <MaterialCommunityIcons name="clipboard-text-outline" size={50} color={theme.border} />
               <Text style={styles.emptyText}>No visitors found in this category.</Text>
             </View>
-          }
-          onEndReached={() => {
-            if (hasNextPage && !isFetchingNextPage) {
-              fetchNextPage();
-            }
-          }}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <ActivityIndicator color={theme.primary} style={{ marginVertical: 20 }} />
-            ) : null
           }
         />
       )}
@@ -345,8 +313,7 @@ const SecurityDashboardScreen = ({ navigation }: any) => {
                 <View style={styles.detailsGrid}>
                   <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Destination</Text>
-                    {/* 🔥 UPDATE: Floor field bhi add kiya destination mein */}
-                    <Text style={styles.detailValue}>{selectedVisitor.tower ? `${selectedVisitor.tower} - ` : ''}{selectedVisitor.floor ? `${selectedVisitor.floor} - ` : ''}Flat {selectedVisitor.flatNo}</Text>
+                    <Text style={styles.detailValue}>{selectedVisitor.tower ? `${selectedVisitor.tower}-` : ''}{selectedVisitor.flatNo}</Text>
                   </View>
                   <View style={styles.detailItem}>
                     <Text style={styles.detailLabel}>Visitor Type</Text>
@@ -501,6 +468,7 @@ const getStyles = (theme: ThemeColors) => StyleSheet.create({
   filterChip: { backgroundColor: theme.background, borderWidth: 1, borderColor: theme.border, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, marginRight: 10 },
   filterChipText: { fontSize: 13, fontWeight: '700', color: theme.textMuted },
   
+  // 🔥 UPDATE: Naye filter chip aur back icon styles
   timeChip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, marginRight: 10, backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.border },
   timeChipText: { fontSize: 12, fontWeight: '700', color: theme.textMuted },
   backIconBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: theme.surface, justifyContent: 'center', alignItems: 'center', marginRight: 10, borderWidth: 1, borderColor: theme.border },
