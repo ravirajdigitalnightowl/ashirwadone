@@ -4,6 +4,8 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { launchImageLibrary, MediaType, ImageLibraryOptions } from 'react-native-image-picker'; 
 import { ThemeContext } from '../../../context/ThemeContext';
 import { ThemeColors } from '../../../theme/colors';
+import { getStyles } from './styles';
+
 
 // Real Hooks Import
 import { useCreateTicket, useCategories } from '../../../hooks/useResident';

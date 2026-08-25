@@ -1,4 +1,4 @@
-// import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { ThemeColors } from '../../../theme/colors';
 
 export const getStyles = (theme: ThemeColors) => StyleSheet.create({
